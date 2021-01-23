@@ -1,1 +1,10 @@
-colorama
+At the end of this milestone, each team needs to prepare a presentation that concisely
+summarizes the entire progress including data model, bufferpool, and query API,
+followed by a live demo of your L-Store implementation. Your submission should have
+working create, insert, select, update, delete and sum methods and
+correct implementation of L-Store fundamentals such as base and tail pages and
+records. Further, your submission should successfully run and pass __main__.py;
+otherwise, a grade of zero will be received on the auto-grading component of the
+assignment. You will need to submit the presentation slides in .pptx, .key, or .pdf
+format by the due date. The submission is done through Canvas, and only one group
+member must submit the package on behalf of the entire group.
