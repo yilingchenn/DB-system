@@ -5,7 +5,8 @@ class Page:
 
     def __init__(self):
         self.num_records = 0
-        self.data = bytearray(4096)
+        self.base_page = []
+        self.tail_page = []
 
     def has_capacity(self):
         pass
@@ -13,4 +14,3 @@ class Page:
     def write(self, value):
         self.num_records += 1
         pass
-

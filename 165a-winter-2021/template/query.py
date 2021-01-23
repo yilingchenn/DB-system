@@ -4,7 +4,7 @@ from template.index import Index
 
 class Query:
     """
-    # Creates a Query object that can perform different queries on the specified table 
+    # Creates a Query object that can perform different queries on the specified table
     Queries that fail must return False
     Queries that succeed should return the result or True
     Any query that crashes (due to exceptions) should return False
@@ -28,8 +28,17 @@ class Query:
     # Return True upon succesful insertion
     # Returns False if insert fails for whatever reason
     """
+    # *columns gives any function parameters as a tuple:
+    #   Can be one element, or can insert many elements at once. 
     def insert(self, *columns):
+        # Schema encoding is a bit vector with one bit per column that stores
+        #   information about the update state of each column. 0 for columns
+        #   that have not been updated and 1 for columns that have been updated
         schema_encoding = '0' * self.table.num_columns
+        # Insert into page, insertion function will return the index of the page
+        #   where it is located to update the page_directory
+        #
+        #
         pass
 
     """
@@ -52,8 +61,8 @@ class Query:
         pass
 
     """
-    :param start_range: int         # Start of the key range to aggregate 
-    :param end_range: int           # End of the key range to aggregate 
+    :param start_range: int         # Start of the key range to aggregate
+    :param end_range: int           # End of the key range to aggregate
     :param aggregate_columns: int  # Index of desired column to aggregate
     # this function is only called on the primary key.
     # Returns the summation of the given range upon success
@@ -78,4 +87,3 @@ class Query:
             u = self.update(key, *updated_columns)
             return u
         return False
-

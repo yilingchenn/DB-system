@@ -1,5 +1,6 @@
 from template.page import *
 from template.index import Index
+from template.index import Page
 from time import time
 
 INDIRECTION_COLUMN = 0
@@ -15,6 +16,23 @@ class Record:
         self.key = key
         self.columns = columns
 
+    """
+    Delete the record by setting the RID to a specified number (-1)
+    """
+    def delete(self):
+        self.rid = -1
+        self.columns[RID_COLUMN] = self.rid
+
+
+    """
+    Update the record by setting the indirection to the new specified index in
+    the corresponding tail_page
+    """
+    def update(self, new_indirection_column):
+        self.columns[INDIRECTION_COLUMN] = new_indirection_column
+
+
+
 class Table:
 
     """
@@ -28,8 +46,8 @@ class Table:
         self.num_columns = num_columns
         self.page_directory = {}
         self.index = Index(self)
+        self.pages = [Page()] * num_columns
         pass
 
     def __merge(self):
         pass
- 
