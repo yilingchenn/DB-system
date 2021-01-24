@@ -11,15 +11,17 @@ class Index:
 
     """
     # returns the location of all records with the given value on column "column"
+    # Traverse the specified column, checking if each Record has the value specified in the
+    # parameter, and return a list of RID's
     """
-
     def locate(self, column, value):
         pass
 
     """
     # Returns the RIDs of all records with values in column "column" between "begin" and "end"
+    # Traverse the specified column, checking if each record has a value between begin and end
+    # and return a list of RID's
     """
-
     def locate_range(self, begin, end, column):
         pass
 

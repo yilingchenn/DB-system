@@ -29,16 +29,28 @@ class Query:
     # Returns False if insert fails for whatever reason
     """
     # *columns gives any function parameters as a tuple:
-    #   Can be one element, or can insert many elements at once. 
+    #   Can be one element, or can insert many elements at once.
+    #   inserted [92113011, 18, 18, 12, 6]
     def insert(self, *columns):
         # Schema encoding is a bit vector with one bit per column that stores
         #   information about the update state of each column. 0 for columns
         #   that have not been updated and 1 for columns that have been updated
-        schema_encoding = '0' * self.table.num_columns
+        # schema_encoding = '0' * self.table.num_columns
+        for column in columns:
+            # Create a new record. INDIRECTION_COLUMN = Null because no updated version.
+            #   RID = index in the base page ==> some other function we need to write
+            #   Timestamp = time at which we process the insertion.
+            #   Schema Encoding column = 0, because its not updated, we're first inserting it
+            record = Record(rid, key, [null, rid, time, 0])
+            # Find the corresponding page, and write the value to the page 
+
         # Insert into page, insertion function will return the index of the page
         #   where it is located to update the page_directory
-        #
-        #
+
+        # To insert something:
+        #   generate an RID for the new record
+        #   append each new Record to the corresponding page
+
         pass
 
     """

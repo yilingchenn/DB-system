@@ -1,27 +1,37 @@
 from template.page import *
 from template.index import Index
-from template.index import Page
+from template.page import Page
 from time import time
 
+# Indirection column gives the location of the updated version of the data in the tail pages,
+#   if it exists. Set to None if not and an index in another
 INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
 TIMESTAMP_COLUMN = 2
+# When schema encoding is 1, it has been updated and the new value is in the tail pages
+# When schema encoding is 0, it has not been updated and value is in the base pages
 SCHEMA_ENCODING_COLUMN = 3
 
 
 class Record:
 
     def __init__(self, rid, key, columns):
-        self.rid = rid
-        self.key = key
+        self.rid = rid # RID = location in memory
+        self.key = key # For the user: how they specify which row they want to change
+        # What about the indirection column??
         self.columns = columns
+        # self.columns = [2, 7, 9, 4]
+        # indirection = 2
+        # RID = 7
+        # timestamp = 9
+        # schema_encoding = 4
 
     """
     Delete the record by setting the RID to a specified number (-1)
     """
     def delete(self):
         self.rid = -1
-        self.columns[RID_COLUMN] = self.rid
+        self.columns[RID_COLUMN] = -1
 
 
     """
@@ -30,8 +40,6 @@ class Record:
     """
     def update(self, new_indirection_column):
         self.columns[INDIRECTION_COLUMN] = new_indirection_column
-
-
 
 class Table:
 
