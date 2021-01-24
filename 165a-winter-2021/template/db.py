@@ -7,6 +7,7 @@ class Database():
         pass
 
     def open(self, path):
+        content = path.readlines()
         pass
 
     def close(self):
