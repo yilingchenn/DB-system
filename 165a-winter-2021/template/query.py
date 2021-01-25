@@ -73,6 +73,7 @@ class Query:
     Coded right now assuming that the key cannot be changed. (starting at index 1)
     """
     # Need to remember to check the MOST updated version
+    # None means no update, not changing to null
     def update(self, key, *columns):
         # Step 1: Go through all tail pages and append the new
         new_schema_encoding = ""
@@ -82,9 +83,6 @@ class Query:
                 new_schema_encoding += "1"
             else:
                 new_schema_encoding += "0"
-
-
-
 
     """
     :param start_range: int         # Start of the key range to aggregate

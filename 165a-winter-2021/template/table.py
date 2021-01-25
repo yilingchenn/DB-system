@@ -39,7 +39,7 @@ class Table:
         self.num_columns = num_columns
         # page_directory maps the RID to the index at which the record occurs
         #   in ALL of the base pages.
-        self.page_directory = {}
+        self.page_directory = {} # RID --> (pageID, offset)
         # index_map maps the key of the record to the RID
         self.index_map = {}
         self.index = Index(self)
