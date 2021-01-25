@@ -37,10 +37,25 @@ class Table:
         self.name = name
         self.key = key
         self.num_columns = num_columns
+        # page_directory maps the RID to the index at which the record occurs
+        #   in ALL of the base pages.
         self.page_directory = {}
+        # index_map maps the key of the record to the RID
         self.index_map = {}
         self.index = Index(self)
+        # self.pages[0] is the record object which holds crucial information
+        # like the key/RID/indirection, while the rest of the columns
+        # correspond to the actual values of the record
         self.pages = [Page()] * num_columns
+        self.current_rid = 0
+
+    """
+    Generates a unique RID within the TABLE (not overall database) for a new
+    record by counting up every time a new one is generated.
+    """
+    def generate_RID(self):
+        self.current_rid += 1
+        return self.current_rid
 
     def __merge(self):
         pass

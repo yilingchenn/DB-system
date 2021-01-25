@@ -4,7 +4,7 @@ from template.index import Index
 
 class Query:
     """
-    # Creates a Query object that can perform different queries on the specified table 
+    # Creates a Query object that can perform different queries on the specified table
     Queries that fail must return False
     Queries that succeed should return the result or True
     Any query that crashes (due to exceptions) should return False
@@ -20,17 +20,33 @@ class Query:
     # Returns True upon succesful deletion
     # Return False if record doesn't exist or is locked due to 2PL
     """
+    # Delete a record by updating everything to null and making the RID -1
     def delete(self, key):
-        pass
+        update(key, [None]*self.table.num_columns)
+        self.table.index_map[key] = -1
+
 
     """
     # Insert a record with specified columns
     # Return True upon succesful insertion
-    # Returns False if insert fails for whatever reason
+    # Returns False if insert fails for whatever reason --> Not implemented,
+    #   Why would it fail (?)
     """
     def insert(self, *columns):
-        schema_encoding = '0' * self.table.num_columns
-        pass
+        # Step 1: Create a new record with the specified information, using the
+        # first element of columns as the key and put it in pages[0]
+        new_RID = self.table.generate_RID()
+        new_record = Record(new_RID, columns[0], self.table.num_columns)
+        self.table.pages[0].write_base_page(new_record)
+        # Step 2: Insert the remainder of the record into the base pages
+        for i in range(1, len(columns)):
+            self.table.pages[i].write_base_page(columns[i])
+        # Step 3: Update the index_map and page_directory
+        self.table.index_map[columns[0]] = new_RID
+        # The location of the newest records correspond to the length-1 of the
+        # base pages, because we appended them to the end.
+        self.table.page_directory[new_RID] = self.table.pages[0].return_base_length()-1
+        return True
 
     """
     # Read a record with specified key
@@ -47,13 +63,28 @@ class Query:
     # Update a record with specified key and columns
     # Returns True if update is succesful
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
+
+    Eg: If current record looks like this [1234, 23, 15, 37] and the update looks
+    like this --> [None, 24, None, 38], then the record changes to [1234, 24, 15, 38]
+    Coded right now assuming that the key cannot be changed. (starting at index 1)
     """
+    # Need to remember to check the MOST updated version
     def update(self, key, *columns):
-        pass
+        # Step 1: Go through all tail pages and append the new
+        new_schema_encoding = ""
+        for i in range(1, len(columns)):
+            if (columns[i]):
+                self.table.pages[i].write_tail_page(columns[i])
+                new_schema_encoding += "1"
+            else:
+                new_schema_encoding += "0"
+
+
+
 
     """
-    :param start_range: int         # Start of the key range to aggregate 
-    :param end_range: int           # End of the key range to aggregate 
+    :param start_range: int         # Start of the key range to aggregate
+    :param end_range: int           # End of the key range to aggregate
     :param aggregate_columns: int  # Index of desired column to aggregate
     # this function is only called on the primary key.
     # Returns the summation of the given range upon success
@@ -78,4 +109,3 @@ class Query:
             u = self.update(key, *updated_columns)
             return u
         return False
-
