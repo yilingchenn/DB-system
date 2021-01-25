@@ -36,13 +36,13 @@ class Query:
         #   information about the update state of each column. 0 for columns
         #   that have not been updated and 1 for columns that have been updated
         # schema_encoding = '0' * self.table.num_columns
-        for column in columns:
+        #for column in columns:
             # Create a new record. INDIRECTION_COLUMN = Null because no updated version.
             #   RID = index in the base page ==> some other function we need to write
             #   Timestamp = time at which we process the insertion.
             #   Schema Encoding column = 0, because its not updated, we're first inserting it
-            record = Record(rid, key, [null, rid, time, 0])
-            # Find the corresponding page, and write the value to the page 
+            # record = Record(rid, key, [null, rid, time, 0])
+            # Find the corresponding page, and write the value to the page
 
         # Insert into page, insertion function will return the index of the page
         #   where it is located to update the page_directory
@@ -56,6 +56,7 @@ class Query:
     """
     # Read a record with specified key
     # :param key: the key value to select records based on
+    # db = 5, 6, 7, 8
     # :param query_columns: what columns to return. array of 1 or 0 values.
     # Returns a list of Record objects upon success
     # Returns False if record locked by TPL

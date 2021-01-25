@@ -1,7 +1,7 @@
 """
 A data strucutre holding indices for various columns of a table. Key column should be indexd by default, other columns can be indexed through this object. Indices are usually B-Trees, but other data structures can be used as well.
 """
-
+# Index maps Key to RID
 class Index:
 
     def __init__(self, table):
@@ -14,6 +14,8 @@ class Index:
     # Traverse the specified column, checking if each Record has the value specified in the
     # parameter, and return a list of RID's
     """
+    # Returns an RID list. Using that RID list, we can check if the value exists in each of the
+    # query columns. Return all the ones that work.
     def locate(self, column, value):
         pass
 
@@ -28,7 +30,6 @@ class Index:
     """
     # optional: Create index on specific column
     """
-
     def create_index(self, column_number):
         pass
 

@@ -12,8 +12,7 @@ class Page:
         pass
 
     def write(self, value):
-        self.num_records += 1
-        self.base_page.append(value)
-        new_record = Record(rid = new generated rid, key = ?, columns = ?, record_value = value, indirection_column = null)
-        self.base_page.append(new_record)
+        # self.num_records += 1
+        # self.base_page.append(value)
+        # new_record = Record(rid = new generated rid, key = ?, columns = ?, record_value = value, indirection_column = null)
         pass
