@@ -21,7 +21,8 @@ class Query:
     # Return False if record doesn't exist or is locked due to 2PL
     """
     def delete(self, key):
-        
+        # append a duplicate of base page value to tail page without changing anything
+        # new tail page RID would not be accessible 
         pass
 
     """
@@ -30,7 +31,20 @@ class Query:
     # Returns False if insert fails for whatever reason
     """
     def insert(self, *columns):
+        # RID page's base page
+        rid = len(self.table.page[0].base_page)
+        # time & schema encoding
+        time = time.time()
         schema_encoding = '0' * self.table.num_columns
+        # create the new record you want to insert
+        # Q: why do we need two RIDs here?
+        record = Record(rid, key = columns[0], [None, rid, time, schema_encoding])
+        # append to base page
+        self.table.page_directory.add(rid, record)
+        # check if insetion is successful
+        # if we choose to check page_directory, it would for sure exist since we just appended
+        # Q: should we have an if-else statement for error message?
+        # but what kind of error message would it return?
         pass
 
     """
@@ -42,7 +56,16 @@ class Query:
     # Assume that select will never be called on a key that doesn't exist
     """
     def select(self, key, column, query_columns):
-        pass
+        rids = self.table.index.locate(column, key) # return a list of RIDs
+        record = []
+        for i in rids:
+            record = self.table.page_directory[i]
+        # if record is not empty
+        # return record else false
+        if record:
+            return record
+        else:
+            return False
 
     """
     # Update a record with specified key and columns
@@ -50,6 +73,7 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
+        # cumulative
         pass
 
     """

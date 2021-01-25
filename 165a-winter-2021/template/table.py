@@ -2,9 +2,9 @@ from template.page import *
 from template.index import Index
 from time import time
 
-INDIRECTION_COLUMN = 0
-RID_COLUMN = 1
-TIMESTAMP_COLUMN = 2
+INDIRECTION_COLUMN = 0 # gives the direction in the tail page
+RID_COLUMN = 1 # columns that contains RIDs
+TIMESTAMP_COLUMN = 2 # mark when the first time the thing is installed
 SCHEMA_ENCODING_COLUMN = 3
 
 
@@ -26,10 +26,10 @@ class Table:
         self.name = name
         self.key = key
         self.num_columns = num_columns
-        self.page_directory = {}
+        self.page_directory = {} #{RID: records}
         self.index = Index(self)
+        self.page = [Page()] * num_columns
         pass
 
     def __merge(self):
         pass
- 

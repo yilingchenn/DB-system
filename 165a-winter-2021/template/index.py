@@ -12,22 +12,37 @@ class Index:
     """
     # returns the location of all records with the given value on column "column"
     """
-
+    
     def locate(self, column, value):
-        pass
+        # search for values through the specific column/page
+        table = self.Table
+        # find particular col/page
+        page = Table(column)
+        # search if there is match in the specific column
+        # return the list of RID
+        rid = [i for i, x in enumerate(page) if x == value]
+        return rid
 
     """
     # Returns the RIDs of all records with values in column "column" between "begin" and "end"
     """
 
     def locate_range(self, begin, end, column):
-        pass
+        # search for values through the specific column/page
+        table = self.Table
+        # find particular col/page
+        page = Table(column)
+        # search if there is match in the specific column
+        # return the list of RID
+        rid = [i for i, x in enumerate(page) if (x >= begin && x <= end)]
+        return rid
 
     """
     # optional: Create index on specific column
     """
 
     def create_index(self, column_number):
+        
         pass
 
     """
@@ -35,4 +50,5 @@ class Index:
     """
 
     def drop_index(self, column_number):
+        
         pass

@@ -5,6 +5,8 @@ class Page:
 
     def __init__(self):
         self.num_records = 0
+        self.base_page = []
+        self.tail_page = []
         self.data = bytearray(4096)
 
     def has_capacity(self):
@@ -12,5 +14,5 @@ class Page:
 
     def write(self, value):
         self.num_records += 1
+        # Q: what is the difference between insert and write
         pass
-
