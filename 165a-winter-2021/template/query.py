@@ -56,6 +56,10 @@ class Query:
     # Returns False if record locked by TPL
     # Assume that select will never be called on a key that doesn't exist
     """
+    # Question: What does the column parameter represent??
+    # Question: How to return a list of record objects when they all come from
+    # The same record because they have the same key??
+    # Eg: [1234, 45, 67, 89] query_columns = [0, 1, 1, 1], so return 45, 67, 89?
     def select(self, key, column, query_columns):
         pass
 
@@ -90,6 +94,10 @@ class Query:
     # Returns the summation of the given range upon success
     # Returns False if no record exists in the given range
     """
+    # How does sum work?
+    # Record = [1234, 12, 34, 56]
+    # Record = [1235, 78, 90, 100] and start range = 1234 and end range = 1235 and
+    # aggregate_columns = 2, then 34 + 90 = 124?
     def sum(self, start_range, end_range, aggregate_column_index):
         pass
 
