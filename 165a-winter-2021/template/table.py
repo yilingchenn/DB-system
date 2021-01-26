@@ -26,10 +26,21 @@ class Table:
         self.name = name
         self.key = key
         self.num_columns = num_columns
-        self.page_directory = {} #{RID: records}
+        self.page_directory = {} #{RID: (page id, indices)}
         self.index = Index(self)
         self.page = [Page()] * num_columns
-        pass
+        self.counter = 0
+        self.page_range = 1
+        
+    def gen_rid(self):
+        # generate RID
+        self.counter += 1
+        return self.counter
+    
+    def checker(self):
+        if self.page[len(self.page)-1].num_records == len(self.page.data):
+            self.page = self.page + [Page()] * num_columns
+            page_range += 1
 
     def __merge(self):
         pass

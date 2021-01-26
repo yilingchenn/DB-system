@@ -21,8 +21,8 @@ class Query:
     # Return False if record doesn't exist or is locked due to 2PL
     """
     def delete(self, key):
-        # append a duplicate of base page value to tail page without changing anything
-        # new tail page RID would not be accessible 
+        # remove from the page directory and the indices
+        # flag the 
         pass
 
     """
@@ -31,21 +31,24 @@ class Query:
     # Returns False if insert fails for whatever reason
     """
     def insert(self, *columns):
-        # RID page's base page
-        rid = len(self.table.page[0].base_page)
+        # count how many RID you have and + 1 is the new RID
+        rid = self.table.gen_rid()
         # time & schema encoding
         time = time.time()
-        schema_encoding = '0' * self.table.num_columns
+        num_columns = self.table.num_columns
+        schema_encoding = '0' * num_columns
         # create the new record you want to insert
-        # Q: why do we need two RIDs here?
+        # using less place
         record = Record(rid, key = columns[0], [None, rid, time, schema_encoding])
-        # append to base page
-        self.table.page_directory.add(rid, record)
-        # check if insetion is successful
-        # if we choose to check page_directory, it would for sure exist since we just appended
-        # Q: should we have an if-else statement for error message?
-        # but what kind of error message would it return?
-        pass
+        # the checker checks if a page is full and +1 for page range if full
+        self.table.checker()
+        page_range = self.page_range
+        offsets = self.table.page[num_columns - 1].num_records
+        self.table.table_directory[rid]= self.table.page[(page_range - 1)*num_columns:page_range*num_column], offsets*num_column
+        for i in range(len(columns)):
+            self.table.page_directory[rid][0][i].write_base_page(columns[i])
+        return True
+        # do we need to check if it never fails anyway?
 
     """
     # Read a record with specified key
