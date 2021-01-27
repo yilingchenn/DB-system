@@ -4,19 +4,25 @@ from template.config import *
 class Page:
 
     def __init__(self):
-        self.num_records = 0 # offsets
-        self.tail_page = []
+        self.num_records = 0 # length of base pages
+        self.num_updates = 0 # length of tail page
+        self.tail_page = bytearray()
         self.data = bytearray(4096) # base page size
 
     def has_capacity(self):
-        pass
+        if self.num_records == len(self.data):
+            return False
+        else:
+            return True
 
+    # value is either an integer (record) or a list -->
+    #   contains all record information like
     def write_base_page(self, value):
+        self.data[self.num_record*8: (self.num_record+1)*8] = value.to_bytes(8, byteorder = 'big')
         self.num_records += 1
-        self.data(value)
-        # write = append to base page
-        pass
-    
+
+
     def write_tail_page(self, value):
         # write = append to tail page
-        pass
+        self.data[self.num_updates*8: (self.num_updates+1)*8] = value.to_bytes(8, byteorder = 'big')
+        self.num_updates += 1
