@@ -2,9 +2,12 @@ from template.page import *
 from template.index import Index
 import datetime
 
+# Indirection column points to the new tail record
 INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
 TIMESTAMP_COLUMN = 2
+# bit vector with one bit per column that stores information about the update
+# state of each column
 SCHEMA_ENCODING_COLUMN = 3
 
 
