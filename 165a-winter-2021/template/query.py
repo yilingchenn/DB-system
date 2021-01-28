@@ -11,7 +11,6 @@ class Query:
 
     def __init__(self, table):
         self.table = table
-        pass
 
     """
     # internal Method
@@ -19,9 +18,8 @@ class Query:
     # Returns True upon succesful deletion
     # Return False if record doesn't exist or is locked due to 2PL
     """
+    # TODO: Figure out how to delete some shit
     def delete(self, key):
-        # remove from the page directory and the indices
-        # flag the
         pass
 
     """
@@ -30,31 +28,33 @@ class Query:
     # Returns False if insert fails for whatever reason
     """
     def insert(self, *columns):
-        num_columns = self.table.num_columns
-        # Generate all internal column data
-        # count how many RID you have and + 1 is the new RID
+        # Generate a new RID from table class
         rid = self.table.gen_rid()
-        # time & schema encoding
-        time = time.time().encode()
-        schema_encoding = '0' * (num_columns - 4) # eliminate internal columns
-        schema_encoding = schema_encoding.encode()
-        indirection = None # How to convert none into byte?
-        # using less place
-        # the checker checks if a page is full and +1 for page range if full
+        # timestamp for record
+        time = time.time().encode()]
+        # Schema encoding for internal columns
+        schema_encoding = '0' * (self.table.num_columns)
+        # Indirection is set to none because there are no updates
+        indirection = None
+        # Check to update page range
         self.table.checker()
-        page_range = self.page_range
-        offsets = self.table.page[num_columns - 1].num_records
-        self.table.page_directory[rid]= self.table.page[(page_range - 1)*num_columns:page_range*num_column], offsets*num_column
-        for i in range(len(columns)):
+        # Map RID to a tuple (page_range, offset)
+        offset = self.table.page[0].num_records
+        page_range = self.table.page_range
+        self.table.page_directory[rid] = (page_range, offet)
+        # Put the columns of the record into the visible columns
+        for i in range(0, self.table.total_columns - 4):
             self.table.page[i].write_base_page(columns[i])
-        # Put in internal records
-        self.table.page[len(columns)].write_base_page(rid)
-        self.table.page[len(columns) + 1].write_base_page(time)
-        self.table.page[len(columns) + 2].write_base_page(schema_encoding)
-        self.table.page[len(columns) + 3].write_base_page(indirection)
+        # Put the information into the internal records
+        self.table.page[self.table.total_columns - 4].write_base_page(rid)
+        self.table.page[self.table.total_columns - 3].write_base_page(time)
+        self.table.page[self.table.total_columns - 2].write_base_page(schema_encoding)
+        self.table.page[self.table.total_columns - 1].write_base_page(indirection)
         return True
-        # do we need to check if it never fails anyway?
 
+    """
+    Find the most updated version in the tail pages and return it. 
+    """
     def find_most_updated(self, rid):
         # This is the hopping function
         # find bae page, then hop to the tail page which has Indirection = None
@@ -66,7 +66,7 @@ class Query:
         else:
             # Update in the tail page
             while (indirection is not None):
-                indirection = 
+                indirection =
             return (offset, True)
 
 
