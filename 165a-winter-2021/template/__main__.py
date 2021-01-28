@@ -1,5 +1,5 @@
-from template.db import Database
-from template.query import Query
+from db import Database
+from query import Query
 from time import process_time
 from random import choice, randrange
 
@@ -52,3 +52,4 @@ for i in range(0, 10000):
     query.delete(906659671 + i)
 delete_time_1 = process_time()
 print("Deleting 10k records took:  \t\t\t", delete_time_1 - delete_time_0)
+"""
