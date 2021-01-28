@@ -1,5 +1,6 @@
 from template.table import Table, Record
 from template.index import Index
+import datetime
 
 class Query:
     """
@@ -23,6 +24,14 @@ class Query:
         pass
 
     """
+    Helper function. Takes in the index at which to insert a record into a column
+    from (0-total_columns-1), and the function Returns the appropriate page
+    index to insert the record.
+    """
+    def return_appropriate_index(self, index):
+        return ((page_range - 1) * self.total_columns) + index
+
+    """
     # Insert a record with specified columns
     # Return True upon succesful insertion
     # Returns False if insert fails for whatever reason
@@ -31,11 +40,12 @@ class Query:
         # Generate a new RID from table class
         rid = self.table.gen_rid()
         # timestamp for record
-        time = time.time().encode()]
+        time = int(datetime.datetime.utcnow().timestamp())
         # Schema encoding for internal columns
-        schema_encoding = '0' * (self.table.num_columns)
-        # Indirection is set to none because there are no updates
-        indirection = None
+        schema_encoding_string = '0' * (self.table.num_columns)
+        # Indirection is set to the maximum value of an 8 byte
+        #   integer --> 18446744073709551615 because there are no updates
+        indirection = 18446744073709551615
         # Check to update page range
         self.table.checker()
         # Map RID to a tuple (page_range, offset)
@@ -44,16 +54,18 @@ class Query:
         self.table.page_directory[rid] = (page_range, offet)
         # Put the columns of the record into the visible columns
         for i in range(0, self.table.total_columns - 4):
-            self.table.page[i].write_base_page(columns[i])
+            page_index = return_appropriate_index(i)
+            self.table.page[page_index].write_base_page(columns[i])
         # Put the information into the internal records
-        self.table.page[self.table.total_columns - 4].write_base_page(rid)
-        self.table.page[self.table.total_columns - 3].write_base_page(time)
-        self.table.page[self.table.total_columns - 2].write_base_page(schema_encoding)
-        self.table.page[self.table.total_columns - 1].write_base_page(indirection)
+        self.table.page[return_appropriate_index(self.table.total_columns - 4)].write_base_page(rid)
+        self.table.page[return_appropriate_index(self.table.total_columns - 3)].write_base_page(time)
+        self.table.page[return_appropriate_index(self.table.total_columns - 2)].write_base_page(schema_encoding)
+        self.table.page[return_appropriate_index(self.table.total_columns - 1)].write_base_page(indirection)
         return True
 
     """
-    Find the most updated version in the tail pages and return it. 
+    Find the most updated version in the tail pages and return it by checking
+    the indirection of the
     """
     def find_most_updated(self, rid):
         # This is the hopping function
@@ -94,8 +106,7 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
-        # cumulative
-        pass
+        # How the fuck to update something?
 
     """
     :param start_range: int         # Start of the key range to aggregate

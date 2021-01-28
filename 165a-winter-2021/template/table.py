@@ -25,7 +25,8 @@ class Table:
         self.total_columns = num_columns + 4
         self.num_columns = num_columns
         self.page_directory = {} #{RID: (page_range, offset)}
-        self.index = Index(self)
+        self.index_directory = {} # {Key: RID}
+        self.index = Index(self) # Not sure what to do with this right now
         self.page = [Page()] * total_columns
         self.rid_counter = 0
         self.page_range = 1

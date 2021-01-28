@@ -19,12 +19,21 @@ class Page:
     # Add a column to the base page. Because the key can be greater than 255,
     # the record will be at self.data[numrecords*8: numrecords+1*8]
     def write_base_page(self, value):
-        self.data[self.num_record*8: (self.num_record+1)*8] = value.to_bytes(8, byteorder = 'big')
+        # Check if the the value is a string or integer, which changes the way
+        # you will encode in memory
+        if isinstance(value, str):
+            self.data[self.num_record*8: (self.num_record+1)*8] = value.encode()
+        else:
+            self.data[self.num_record*8: (self.num_record+1)*8] = value.to_bytes(8, byteorder = 'big')
         self.num_records += 1
 
     # Add a column to the tail page. Because the key can be greater than 255,
     # the record will be at self.data[numrecords*8: numrecords+1*8]
     def write_tail_page(self, value):
-        # write = append to tail page
-        self.data[self.num_updates*8: (self.num_updates+1)*8] = value.to_bytes(8, byteorder = 'big')
-        self.num_updates += 1
+        # Check if the the value is a string or integer, which changes the way
+        # you will encode in memory
+        if isinstance(value, str):
+            self.tail_page[self.num_updates*8: (self.num_updates+1)*8] = value.encode()
+        else:
+            self.tail_page[self.num_updates*8: (self.num_updates+1)*8] = value.to_bytes(8, byteorder = 'big')
+        self.num_records += 1
