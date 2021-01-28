@@ -43,12 +43,15 @@ class Table:
     # If one of the pages does not have capacity, then all pages won't have capacity,
     # and another page range needs to be added to account for more pages.
     def checker(self):
-        if not self.page[0].has_capacity():
+        # Check the capacity of the current page range
+        if not self.page[(self.page_range - 1) * self.total_columns].has_capacity():
             # Allocate new pages
             for i in range(0, self.total_columns):
                 new_page = Page()
                 self.page.append(new_page)
+            # Add one to the page_range
             self.page_range += 1
+
 
     # Don't have to implement for this cycle
     def __merge(self):

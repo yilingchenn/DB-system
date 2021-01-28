@@ -61,7 +61,7 @@ class Query:
         # Check to update page range
         self.table.checker()
         # Map RID to a tuple (page_range, offset)
-        offset = self.table.page[0].num_records
+        offset = self.table.page[(self.table.page_range - 1) * self.table.total_columns].num_records
         page_range = self.table.page_range
         self.table.page_directory[rid] = (page_range, offset)
         # Map key to the RID in the index directory
@@ -112,7 +112,7 @@ class Query:
                     updated_schema_encoding += "0"
                 else:
                     updated_schema_encoding += "1"
-            
+
             # Put new schema encoding in the
             # Steps to update something:
             # Find the base record
