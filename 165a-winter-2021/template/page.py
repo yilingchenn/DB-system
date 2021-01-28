@@ -16,6 +16,13 @@ class Page:
         else:
             return True
 
+    # Change the value of the base page at that offset to a new value. Used only for schema encoding and indirection.
+    def edit_base_page(self, offset, new_val):
+        if isinstance(new_val, str):
+            self.data[offset*8: (offset+1)*8] = new_val.encode()
+        else:
+            self.data[offset*8: (offset+1)*8] = new_val.to_bytes(8, byteorder = 'big')
+
     # Add a column to the base page. Because the key can be greater than 255,
     # the record will be at self.data[numrecords*8: numrecords+1*8]
     def write_base_page(self, value):

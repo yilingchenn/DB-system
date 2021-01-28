@@ -2,6 +2,8 @@ from table import Table, Record
 from index import Index
 import datetime
 
+MAX_INT = 18446744073709551615
+
 class Query:
     """
     # Creates a Query object that can perform different queries on the specified table
@@ -12,6 +14,36 @@ class Query:
 
     def __init__(self, table):
         self.table = table
+
+    # Returns the indirection of the base page located at pageID, offset.
+    def get_indirection(self, pageId, offset):
+        indirection_index = self.table.total_columns - 1
+        page_index = ((pageId - 1) * self.table.total_columns) + indirection_index
+        page = self.table.page[page_index]
+        current_indirection = page.read_base_page(offset)
+        return current_indirection
+
+    # Set the indirection of a base page located at  pageId, offset to an updated value.
+    def set_indirection(self, pageId, offset, new_indirection):
+        indirection_index = self.table.total_columns - 1
+        page_index = ((pageId - 1) * self.table.total_columns) + indirection_index
+        page = self.table.page[page_index]
+        page.edit_base_page(offset, new_indirection)
+
+    # Get the schema encoding from a base page located at pageID, offset
+    def get_schema_encoding(self, pageID, offset):
+        schema_encoding_index = self.table.total_columns - 2
+        page_index = ((pageID - 1) * self.table.total_columns) + schema_encoding_index
+        page = self.table.page[page_index]
+        current_schema_encoding = page.read_base_page(offset)
+        return current_schema_encoding.decode()
+
+    # Set the schema_encoding of a base page located at  pageId, offset to an updated value.
+    def set_schema_encoding(self, pageId, offset, new_schema_encoding):
+        schema_encoding_index = self.table.total_columns - 2
+        page_index = ((pageId-1) * self.table.total_columns) + schema_encoding_index
+        page = self.table.page[page_index]
+        page.edit_base_page(offset, new_schema_encoding)
 
     """
     # internal Method
@@ -26,13 +58,13 @@ class Query:
         location = self.table.page_directory[rid]
         # Remove the old RID and replace the key, value pair with RID -1
         self.table.page_directory.pop(rid)
-        self.table.page_directory[18446744073709551615] = location
-        self.table.index_directory[key] = 18446744073709551615
+        self.table.page_directory[MAX_INT] = location
+        self.table.index_directory[key] = MAX_INT
         # Edit the RID column in the base page
         # RID column is the column at self.total_columns-4
-        self.table.page[self.return_appropriate_index(self.table.total_columns-4)].write_base_page(18446744073709551615)
+        self.table.page[self.return_appropriate_index(self.table.total_columns-4)].write_base_page(MAX_INT)
         # Make an update that makes all the values of the RID null
-        update_array = [18446744073709551615] * self.table.num_columns
+        update_array = [MAX_INT] * self.table.num_columns
         self.update(key, update_array)
 
     """
@@ -54,10 +86,10 @@ class Query:
         # timestamp for record
         time = int(datetime.datetime.utcnow().timestamp())
         # Schema encoding for internal columns
-        schema_encoding_string = '0' * (self.table.num_columns)
+        schema_encoding_string = '0' * self.table.num_columns
         # Indirection is set to the maximum value of an 8 byte
-        #   integer --> 18446744073709551615 because there are no updates
-        indirection = 18446744073709551615
+        #   integer --> MAX_INT because there are no updates
+        indirection = MAX_INT
         # Check to update page range
         self.table.checker()
         # Map RID to a tuple (page_range, offset)
@@ -101,25 +133,15 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
-        # Check if a record exists with the given key or if the key exists but was deleted
-        if key in self.table.index_directory.keys() or self.table.index_directory[key] == 18446744073709551615:
-            return False
+        rid = self.table.index_directory[key]
+        base_pageId = self.table.page_directory[rid][0]
+        base_page_offset = self.table.page_directory[rid][1]
+        base_page_indirection = self.get_indirection(base_pageId, base_page_offset)
+        if base_page_indirection == MAX_INT:
+            # No updates--most updated version is the base page
+            snap_shot = self.create_snapshot(columns, previous_schema_encoding, )
         else:
-            # Create a new schema_encoding
-            updated_schema_encoding = ""
-            for i in range(0, len(columns)):
-                if columns[i] is None:
-                    updated_schema_encoding += "0"
-                else:
-                    updated_schema_encoding += "1"
-
-            # Put new schema encoding in the
-            # Steps to update something:
-            # Find the base record
-            # Find what the tail record points to, save it
-            # Append the new record to the tail page
-            #
-
+            # Updates--most updated version is in the tail page
 
     """
     :param start_range: int         # Start of the key range to aggregate
