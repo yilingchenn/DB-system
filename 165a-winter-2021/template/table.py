@@ -10,7 +10,6 @@ class Record:
         self.indirection = indirection
         self.timestamp = timestamp
         self.schema_encoding = schema_encoding
-        [rid, indirection, timestamp, schema_encoding]
 
 class Table:
 
@@ -22,11 +21,13 @@ class Table:
     def __init__(self, name, num_columns, key):
         self.name = name
         self.key = key
-        self.num_columns = num_columns + 4 # columns + RID + Indirection + Schema + Timestamp
-        self.page_directory = {} #{RID: (page id, indices)}
+        # Total columns = num_columns + 4 internal columns (RID, Indirection, Schema, Timestamp)
+        self.total_columns = num_columns + 4
+        self.num_columns = num_columns
+        self.page_directory = {} #{RID: (page_range, offset)}
         self.index = Index(self)
-        self.page = [Page()] * num_columns
-        self.counter = 0
+        self.page = [Page()] * total_columns
+        self.rid_counter = 0
         self.page_range = 1
 
     def gen_rid(self):
@@ -34,9 +35,11 @@ class Table:
         self.counter += 1
         return self.counter
 
+    # If one of the pages does not have capacity, then all pages won't have capacity,
+    # and another page range needs to be added to account for more pages.
     def checker(self):
-        if self.page[len(self.page)-1].num_records == len(self.page.data)/8:
-            self.page = self.page + [Page()] * num_columns
+        if not self.page[0].has_capacity():
+            self.page = self.page + [Page()] * self.total_columns
             page_range += 1
 
     def __merge(self):
