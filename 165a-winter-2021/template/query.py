@@ -1,5 +1,5 @@
-from template.table import Table, Record
-from template.index import Index
+from table import Table, Record
+from index import Index
 import datetime
 
 class Query:
@@ -29,7 +29,7 @@ class Query:
     index to insert the record.
     """
     def return_appropriate_index(self, index):
-        return ((page_range - 1) * self.total_columns) + index
+        return ((self.table.page_range - 1) * self.table.total_columns) + index
 
     """
     # Insert a record with specified columns
@@ -51,16 +51,16 @@ class Query:
         # Map RID to a tuple (page_range, offset)
         offset = self.table.page[0].num_records
         page_range = self.table.page_range
-        self.table.page_directory[rid] = (page_range, offet)
+        self.table.page_directory[rid] = (page_range, offset)
         # Put the columns of the record into the visible columns
         for i in range(0, self.table.total_columns - 4):
-            page_index = return_appropriate_index(i)
+            page_index = self.return_appropriate_index(i)
             self.table.page[page_index].write_base_page(columns[i])
         # Put the information into the internal records
-        self.table.page[return_appropriate_index(self.table.total_columns - 4)].write_base_page(rid)
-        self.table.page[return_appropriate_index(self.table.total_columns - 3)].write_base_page(time)
-        self.table.page[return_appropriate_index(self.table.total_columns - 2)].write_base_page(schema_encoding)
-        self.table.page[return_appropriate_index(self.table.total_columns - 1)].write_base_page(indirection)
+        self.table.page[self.return_appropriate_index(self.table.total_columns - 4)].write_base_page(rid)
+        self.table.page[self.return_appropriate_index(self.table.total_columns - 3)].write_base_page(time)
+        self.table.page[self.return_appropriate_index(self.table.total_columns - 2)].write_base_page(schema_encoding_string)
+        self.table.page[self.return_appropriate_index(self.table.total_columns - 1)].write_base_page(indirection)
         return True
 
     """
@@ -71,6 +71,7 @@ class Query:
         # This is the hopping function
         # find bae page, then hop to the tail page which has Indirection = None
         # Return the index in the tail pages at which the most updated version exists
+        """
         offset = self.table.page_directory[rid][1]
         indirection = self.table.page[self.table.num_columns - 1][offset]
         if not indirection:
@@ -80,6 +81,8 @@ class Query:
             while (indirection is not None):
                 indirection =
             return (offset, True)
+        """
+        pass
 
 
     """
@@ -106,7 +109,7 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
-        # How the fuck to update something?
+        pass
 
     """
     :param start_range: int         # Start of the key range to aggregate

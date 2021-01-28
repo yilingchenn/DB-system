@@ -1,5 +1,5 @@
-from template.page import *
-from template.index import Index
+from page import *
+from index import Index
 from time import time
 
 class Record:
@@ -27,21 +27,29 @@ class Table:
         self.page_directory = {} #{RID: (page_range, offset)}
         self.index_directory = {} # {Key: RID}
         self.index = Index(self) # Not sure what to do with this right now
-        self.page = [Page()] * total_columns
+        # Need to iterate through and allocate a new page every time to avoid changing all pages
+        self.page = []
+        for i in range(0, self.total_columns):
+            new_page = Page()
+            self.page.append(new_page)
         self.rid_counter = 0
         self.page_range = 1
 
+    # generate RID
     def gen_rid(self):
-        # generate RID
-        self.counter += 1
-        return self.counter
+        self.rid_counter += 1
+        return self.rid_counter
 
     # If one of the pages does not have capacity, then all pages won't have capacity,
     # and another page range needs to be added to account for more pages.
     def checker(self):
         if not self.page[0].has_capacity():
-            self.page = self.page + [Page()] * self.total_columns
-            page_range += 1
+            # Allocate new pages
+            for i in range(0, self.total_columns):
+                new_page = Page()
+                self.page.append(new_page)
+            self.page_range += 1
 
+    # Don't have to implement for this cycle
     def __merge(self):
         pass

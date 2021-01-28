@@ -1,4 +1,4 @@
-from template.config import *
+from config import *
 
 
 class Page:
@@ -22,9 +22,9 @@ class Page:
         # Check if the the value is a string or integer, which changes the way
         # you will encode in memory
         if isinstance(value, str):
-            self.data[self.num_record*8: (self.num_record+1)*8] = value.encode()
+            self.data[self.num_records*8: (self.num_records+1)*8] = value.encode()
         else:
-            self.data[self.num_record*8: (self.num_record+1)*8] = value.to_bytes(8, byteorder = 'big')
+            self.data[self.num_records*8: (self.num_records+1)*8] = value.to_bytes(8, byteorder = 'big')
         self.num_records += 1
 
     # Add a column to the tail page. Because the key can be greater than 255,

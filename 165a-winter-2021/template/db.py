@@ -1,4 +1,4 @@
-from template.table import Table
+from table import Table
 
 class Database():
 
@@ -21,7 +21,7 @@ class Database():
     """
     def create_table(self, name, num_columns, key):
         table = Table(name, num_columns, key)
-        # create pages 
+        # create pages
         return table
 
     """
