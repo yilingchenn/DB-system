@@ -7,7 +7,6 @@ class Database():
         pass
 
     def open(self, path):
-        #content = path.readlines()
         pass
 
     def close(self):
@@ -21,7 +20,7 @@ class Database():
     """
     def create_table(self, name, num_columns, key):
         table = Table(name, num_columns, key)
-        # create pages 
+        # create 7 columns in each page
         return table
 
     """

@@ -18,11 +18,19 @@ class Page:
     # value is either an integer (record) or a list -->
     #   contains all record information like
     def write_base_page(self, value):
-        self.data[self.num_record*8: (self.num_record+1)*8] = value.to_bytes(8, byteorder = 'big')
+        if isinstance(value, int):
+            self.data[self.num_records*8: (self.num_records+1)*8] = value.to_bytes(8, byteorder = 'big')
+        else:
+            self.data[self.num_records*8: (self.num_records+1)*8] = value
         self.num_records += 1
-
 
     def write_tail_page(self, value):
         # write = append to tail page
-        self.data[self.num_updates*8: (self.num_updates+1)*8] = value.to_bytes(8, byteorder = 'big')
+        if isinstance(value, int):
+            self.tail_page[self.num_updates*8: (self.num_updates+1)*8] = value.to_bytes(8, byteorder = 'big')
+        else:
+            self.tail_page[self.num_updates*8: (self.num_updates+1)*8] = value
         self.num_updates += 1
+        
+    def replace_base_page(self, value, offset):
+        self.data[offset*8: (offset+1)*8] = value.to_bytes(8, byteorder = 'big')

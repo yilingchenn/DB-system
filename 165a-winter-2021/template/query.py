@@ -52,7 +52,7 @@ class Query:
             # note that if our indirection is pointing to None, it will return error since result must be integer
             # we want to find the index for None
             counter = 0
-            while tail_ind != None:
+            while tail_ind != 0: # None type conversion
                 for i in indices: # we find all indices with same RID
                     tail_ind = indirection[i] # change index
                 counter += 1 # count the index so we know where the None is from the indices
@@ -62,7 +62,7 @@ class Query:
             
     """
     # Check if the data exist or not 
-    Used in: Delete() and Sum()
+    Used in: Delete() and Sum() and Update()
     """
 
     """
@@ -72,16 +72,30 @@ class Query:
     # Return False if record doesn't exist or is locked due to 2PL
     """
     def delete(self, key):
-        # ** flag the most updated one + flag the base page
-        # OR don't need to find the most updated one (deletion in base page only)
-        # >> note that this means the tail page is still using the space
-        # >> if we want complete deletion, we would need to access both base AND tail page
-        # 
-        # set the base page indirection column to -1 
-        # and when the user access using the key,
-        # indirection point to -1 return no data found == successful deletion
-        # for the data exsit, maybe anther function would do (since summation also need to check)
-        pass
+        # check if key exist, return False if it does not
+        # else: continue
+        # locate using key and pick a random columns = 0
+        old_rid = self.table.index.locate(0, key) # return the RID in base page
+        # use the page range to find partilar page to delete
+        base_page_range = self.table.page_directory[old_rid][0]
+        base_offset = self.table.page_directory[old_rid][1]
+        # columns = [None] * (num_columns - num_internal_columns)
+        columns = [None] * (num_columns - 4)
+        # generate internal columns for tail page
+        new_rid = self.table.gen_rid()
+        timestamp = int(round(time() * 1000))
+        schema_encoding = '0' * (num_columns - 4)
+        schema_encoding = schema_encoding.encode()
+        # indirection = old_rid
+        indirection = old_rid
+        # combine them and write_tail_page
+        new_value = columns + [new_rid, timestamp, schema_encoding, indirection]
+        # use write_tail_page
+        for i in range(len(new_value)):
+            self.table.page[(base_page_range-1)*self.table.num_columns+(i+1)].write_tail_page(new_values[i])
+        # set base page RID indirection to a new tail page RID
+        self.table.page[base_page_range*(self.table.num_columns - 3)].replace_base_page(indirection, base_offset)
+        return True
 
     """
     # Insert a record with specified columns
@@ -94,23 +108,23 @@ class Query:
         # count how many RID you have and + 1 is the new RID
         rid = self.table.gen_rid()
         # time & schema encoding
-        time = time.time().encode()
+        timestamp = int(round(time() * 1000))
         schema_encoding = '0' * (num_columns - 4) # eliminate internal columns
         schema_encoding = schema_encoding.encode()
-        indirection = None # How to convert none into byte?
+        indirection = 0 # How to convert none into byte?
         # using less place
         # the checker checks if a page is full and +1 for page range if full
         self.table.checker()
-        page_range = self.page_range
+        page_range = self.table.page_range
         offsets = self.table.page[num_columns - 1].num_records
-        self.table.page_directory[rid]= self.table.page[(page_range - 1)*num_columns:page_range*num_column], offsets*num_column
-        for i in range(len(columns)):
+        self.table.page_directory[rid]= page_range, offsets
+        for i in range(num_columns-4):
             self.table.page[i].write_base_page(columns[i])
         # Put in internal records
-        self.table.page[len(columns)].write_base_page(rid)
-        self.table.page[len(columns) + 1].write_base_page(time)
-        self.table.page[len(columns) + 2].write_base_page(schema_encoding)
-        self.table.page[len(columns) + 3].write_base_page(indirection)
+        self.table.page[num_columns - 4].write_base_page(rid)
+        self.table.page[num_columns - 3].write_base_page(timestamp)
+        self.table.page[num_columns - 2].write_base_page(schema_encoding)
+        self.table.page[num_columns - 1].write_base_page(indirection)
         return True
         # do we need to check if it never fails anyway?
 
@@ -129,18 +143,15 @@ class Query:
         for rid in rids:
             page_directory = self.table.page_directory[rid] # map to the base page and the offset
             pageID = page_directory[0]
-            offset = find_most_updated(rid) # here return the offset we are looking at
-            # if the offset is in base page
-            if in_tail_page is False: #** edit!!
-                record_in_byte = self.table.page[pageID].data[offset] # record is in bytearray!!
-            # the offset is in tail page
-            else:
-                record_in_byte = self.table.page[pageID].tail_page[offset] # record is in bytearray!!
+            offset, tail_page = find_most_updated(rid) # here return the offset we are looking at
+            if tail_page is False: # if the offset is in base page
+                record_in_byte = self.table.page[pageID].data[offset]
+            else: # the offset is in tail page
+                record_in_byte = self.table.page[pageID].tail_page[offset]
         # convert the record into readible form
         for i in range(len(record_in_byte)-4): # delete the internal columns
             record[i] = int.from_bytes(record_in_byte[(i)*8:(i+1)*8],byteorder = 'big')
-        return record
-            
+        return record  
 
     """
     # Update a record with specified key and columns
@@ -148,8 +159,56 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
-        # cumulative
-        pass
+        # check if the given key exist, return False if doesn't exist
+        # else: continue
+        
+        # generate new RID
+        new_rid = self.table.gen_rid()
+        # check the most updated
+        old_rid = self.table.index.locate(0, key) # locate in the base page
+        base_page_range = self.table.page_directory[old_rid][0]
+        base_offset = self.table.page_directory[old_rid][1]
+        indirection = old_rid
+        # check most update, if it's the offset in base page, second value is False
+        offset, tail_page = find_most_updated(self, old_rid)
+        # if the most updated version is in the base_page
+        new_time = int(round(time() * 1000))
+        new_schema_encoding = ""
+        # return the most updated
+        old_record = self.select(key, 0, [1]*len(columns)) #including the internal ones
+        if tail_page == False:
+            # compare only
+            for i in range(len(old_record)):
+                if old_record[i] == columns[i]:
+                    new_schema_encoding[i] = "0"
+                else:
+                    new_schema_encoding[i] = "1"
+            # write into the tail_page for the new update
+        else:
+            old_schema_encoding = self.table.page[base_page_range*(self.table.num_columns - 2)].data[base_offset]
+            old_schema_encoding = schema_encoding.decode() # convert back to string
+            if old_record[i] == columns[i]:
+                new_schema_encoding[i] = "0"
+            else:
+                new_schema_encoding[i] = "1"
+            for i in range(len(new_schema_encoding)):
+                if old_schema_encoding[i] == "1":
+                    new_schema_encoding[i] = "1"
+        
+        # now let's say we figure out the schema encoding
+        for i in range(len(schema_encoding)):
+            columns[i] = columns[i] * int(schema_encoding[i])
+        # combine columns + internal columns
+        new_values = columns + [new_rid, new_time, schema_encoding, indirection]
+        for i in range(self.table.num_columns):
+            # we append to the tail page
+            # num_columns is the total columns
+            self.table.page[(base_page_range-1)*self.table.num_columns+(i+1)].write_tail_page(new_values[i])
+        # now we change the internal column values in the base page[schema_encoding, indirection]
+        new_schema_encoding = schema_encoding.encode()
+        self.table.page[base_page_range*(self.table.num_columns - 2)].replace_base_page(new_schema_encoding, base_offset)
+        self.table.page[base_page_range*(self.table.num_columns - 3)].replace_base_page(indirection, base_offset)
+        return True
 
     """
     :param start_range: int         # Start of the key range to aggregate
@@ -162,27 +221,16 @@ class Query:
     def summation(self, start_range, end_range, aggregate_column_index):
         # use locate range return a list of RIDs
         rids = self.table.index.locate_range(start_range, end_range, aggregate_column_index)
-        # check if all rids exist in the page directory
-        keys = []
-        for k in range(start_range, end_range):
-            keys += [k]
-        return keys
-        summation = []
-        # check each RIDs
+        if len(rids) == 0:
+            return False
+        summation = 0
+        # use the select function (not sure the input)
         for rid in rids:
-            # if one of them does not exist
-            # ** can switch this part to a new function
-            page_directory = self.table.page_directory[rid]
-            if len(page_directory) == 0:
-                return False
-            else:
-                # use the select function (not sure the input)
-                for key in keys:
-                    #** not sure about aggregation
-                    #** also not sure about the query columns in this case
-                    summation = [a+b for a, b in zip(summation, select(key, aggregate_column_index, query_columns))
-                return summation
-                
+            page_range = self.table.page_directory[rid][0]
+            offset = self.table.page_directory[rid][1]
+            summation = summation + self.table.page[page_range*(aggregate_column_index+1)].data[offset]
+        return summation
+
     """
     incremenets one column of the record
     this implementation should work if your select and update queries already work

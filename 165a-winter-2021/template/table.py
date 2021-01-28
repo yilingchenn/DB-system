@@ -22,10 +22,12 @@ class Table:
     def __init__(self, name, num_columns, key):
         self.name = name
         self.key = key
+        # ** maybe consider change 4 to a variable name
+        # ** also just may can have another variable for total_columns
         self.num_columns = num_columns + 4 # columns + RID + Indirection + Schema + Timestamp
         self.page_directory = {} #{RID: (page id, indices)}
         self.index = Index(self)
-        self.page = [Page()] * num_columns
+        self.page = [Page()] * self.num_columns
         self.counter = 0
         self.page_range = 1
 
@@ -35,7 +37,7 @@ class Table:
         return self.counter
 
     def checker(self):
-        if self.page[len(self.page)-1].num_records == len(self.page.data)/8:
+        if self.page[len(self.page)-1].num_records == len(self.page[0].data)/8:
             self.page = self.page + [Page()] * num_columns
             page_range += 1
 
