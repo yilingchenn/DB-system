@@ -37,3 +37,9 @@ class Page:
         else:
             self.tail_page[self.num_updates*8: (self.num_updates+1)*8] = value.to_bytes(8, byteorder = 'big')
         self.num_records += 1
+
+    def read_base_page(self, offset):
+        return self.data[offset*8: (offset+1)*8]
+
+    def read_tail_page(self, offset):
+        return self.tail_page[offset*8: (offset+1)*8]

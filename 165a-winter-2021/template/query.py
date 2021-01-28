@@ -19,9 +19,21 @@ class Query:
     # Returns True upon succesful deletion
     # Return False if record doesn't exist or is locked due to 2PL
     """
-    # TODO: Figure out how to delete some shit
+    # Delete a record by setting the RID to -1
     def delete(self, key):
-        pass
+        # Find the location of the key
+        rid = self.table.index_directory[key]
+        location = self.table.page_directory[rid]
+        # Remove the old RID and replace the key, value pair with RID -1
+        self.table.page_directory.pop(rid)
+        self.table.page_directory[18446744073709551615] = location
+        self.table.index_directory[key] = 18446744073709551615
+        # Edit the RID column in the base page
+        # RID column is the column at self.total_columns-4
+        self.table.page[self.return_appropriate_index(self.table.total_columns-4)].write_base_page(18446744073709551615)
+        # Make an update that makes all the values of the RID null
+        update_array = [18446744073709551615] * self.table.num_columns
+        self.update(key, update_array)
 
     """
     Helper function. Takes in the index at which to insert a record into a column
@@ -52,6 +64,8 @@ class Query:
         offset = self.table.page[0].num_records
         page_range = self.table.page_range
         self.table.page_directory[rid] = (page_range, offset)
+        # Map key to the RID in the index directory
+        self.table.index_directory[columns[0]] = rid
         # Put the columns of the record into the visible columns
         for i in range(0, self.table.total_columns - 4):
             page_index = self.return_appropriate_index(i)
@@ -62,28 +76,6 @@ class Query:
         self.table.page[self.return_appropriate_index(self.table.total_columns - 2)].write_base_page(schema_encoding_string)
         self.table.page[self.return_appropriate_index(self.table.total_columns - 1)].write_base_page(indirection)
         return True
-
-    """
-    Find the most updated version in the tail pages and return it by checking
-    the indirection of the
-    """
-    def find_most_updated(self, rid):
-        # This is the hopping function
-        # find bae page, then hop to the tail page which has Indirection = None
-        # Return the index in the tail pages at which the most updated version exists
-        """
-        offset = self.table.page_directory[rid][1]
-        indirection = self.table.page[self.table.num_columns - 1][offset]
-        if not indirection:
-            return (offset, False) # offset, and in the base pages
-        else:
-            # Update in the tail page
-            while (indirection is not None):
-                indirection =
-            return (offset, True)
-        """
-        pass
-
 
     """
     # Read a record with specified key
@@ -109,7 +101,25 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
-        pass
+        # Check if a record exists with the given key or if the key exists but was deleted
+        if key in self.table.index_directory.keys() or self.table.index_directory[key] == 18446744073709551615:
+            return False
+        else:
+            # Create a new schema_encoding
+            updated_schema_encoding = ""
+            for i in range(0, len(columns)):
+                if columns[i] is None:
+                    updated_schema_encoding += "0"
+                else:
+                    updated_schema_encoding += "1"
+            
+            # Put new schema encoding in the
+            # Steps to update something:
+            # Find the base record
+            # Find what the tail record points to, save it
+            # Append the new record to the tail page
+            #
+
 
     """
     :param start_range: int         # Start of the key range to aggregate
