@@ -77,19 +77,13 @@ class Query:
     """
     # Delete a record by setting the RID to -1
     def delete(self, key):
-        # Find the location of the key
+        if not self.key_exists(key):
+            return False
+            # find RID
         rid = self.table.index_directory[key]
-        location = self.table.page_directory[rid]
-        # Remove the old RID and replace the key, value pair with RID -1
-        self.table.page_directory.pop(rid)
-        self.table.page_directory[MAX_INT] = location
-        self.table.index_directory[key] = MAX_INT
-        # Edit the RID column in the base page
-        # RID column is the column at self.total_columns-4
-        self.table.page[self.return_appropriate_index(self.table.total_columns-4)].write_base_page(MAX_INT)
-        # Make an update that makes all the values of the RID null
-        update_array = [MAX_INT] * self.table.num_columns
-        self.update(key, update_array)
+        self.table.page_directory.pop(rid, None)
+        self.table.index_directory.pop(key, None)
+        return True
 
     """
     Helper function. Takes in the index at which to insert a record into a column
