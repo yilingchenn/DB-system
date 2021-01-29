@@ -165,7 +165,7 @@ class Query:
         rid = self.table.index_directory[key]
         pageId = self.table.page_directory[rid][0]
         offset = self.table.page_directory[rid][1]
-        indirection = self.get_indirection_base(pageId, offset)
+        # indirection = self.get_indirection_base(pageId, offset)
         schema_encoding = self.get_schema_encoding_base(pageId, offset)
         # Read the values to get the most updated values
         for i in range(0, self.table.num_columns):
@@ -187,8 +187,8 @@ class Query:
     """
     def update(self, key, *columns):
         # convert tuple into list
-        col = [columns]
-        columns = [i for t in col for i in t]
+        columns = [columns]
+        columns = [i for t in columns for i in t]
         # Modify columns data to encode MAX_INT as None
         for i in range(0, len(columns)):
             if columns[i] is None:
@@ -212,7 +212,7 @@ class Query:
         # Find new schema encoding
         new_schema_encoding = ""
         for i in range(0, len(most_updated)):
-            if most_updated[i] == col[i] or col[i] == MAX_INT:
+            if most_updated[i] == columns[i] or columns[i] == MAX_INT:
                 if base_page_schema_encoding[i] == '1':
                     new_schema_encoding += '1'
                 else:
@@ -226,8 +226,8 @@ class Query:
         else:
             tail_page_indirection = base_page_indirection
         # Now, write EVERYTHING into tail page since we have all the info we need.
-        for i in range(0, len(col)): # TODO: start with 1 or 0? Can you update keys? Starting with 0 for now
-            self.table.page[(base_pageId-1)*self.table.total_columns+i].write_tail_page(col[i])
+        for i in range(0, len(columns)): # TODO: start with 1 or 0? Can you update keys? Starting with 0 for now
+            self.table.page[(base_pageId-1)*self.table.total_columns+i].write_tail_page(columns[i])
         # Write internal columns into tail page
         self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 4)].write_tail_page(tail_page_rid)
         self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 3)].write_tail_page(timestamp)
