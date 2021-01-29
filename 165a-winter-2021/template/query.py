@@ -1,6 +1,6 @@
 from table import Table, Record
 from index import Index
-import datetime
+from time import time
 
 MAX_INT = 18446744073709551615
 
@@ -21,7 +21,8 @@ class Query:
         page_index = ((pageId - 1) * self.table.total_columns) + indirection_index
         page = self.table.page[page_index]
         current_indirection = page.read_base_page(offset)
-        return current_indirection
+        current_indirection_decoded = int.from_bytes(current_indirection, byteorder = "big")
+        return current_indirection_decoded
 
     # Set the indirection of a base page located at  pageId, offset to an updated value.
     def set_indirection_base(self, pageId, offset, new_indirection):
@@ -44,6 +45,26 @@ class Query:
         page_index = ((pageId-1) * self.table.total_columns) + schema_encoding_index
         page = self.table.page[page_index]
         page.edit_base_page(offset, new_schema_encoding)
+
+    # Given the pageId, offset, and col (0, num_cols), return the most individual element of a record in base page
+    def get_record_element_base(self, pageId, offset, col):
+        page_index = ((pageId-1) * self.table.total_columns) + col
+        page = self.table.page[page_index]
+        element = page.read_base_page(offset)
+        element_decoded = int.from_bytes(element, byteorder = "big")
+        return element_decoded
+
+    # Given the pageId, offset, and col (0, num_cols), return the most individual element of a record in tail page
+    def get_record_element_tail(self, pageId, offset, col):
+        page_index = ((pageId - 1) * self.table.total_columns) + col
+        page = self.table.page[page_index]
+        element = page.read_tail_page(offset)
+        element_decoded = int.from_bytes(element, byteorder = "big")
+        return element_decoded
+
+    # Returns if the key exists in the dictionary
+    def key_exists(self, key):
+        return key in self.table.index_directory.keys()
 
     """
     # internal Method
@@ -84,7 +105,7 @@ class Query:
         # Generate a new RID from table class
         rid = self.table.gen_rid()
         # timestamp for record
-        time = int(datetime.datetime.utcnow().timestamp())
+        time = int(round(time() * 1000))
         # Schema encoding for internal columns
         schema_encoding_string = '0' * self.table.num_columns
         # Indirection is set to the maximum value of an 8 byte
@@ -118,13 +139,45 @@ class Query:
     # Assume that select will never be called on a key that doesn't exist
     """
     def select(self, key, column, query_columns):
+        # Need to get the columns from the base page and the columns from the tail page and the schema_encoding.
+        record_list = []
+        rid = self.table.index_directory[key]
+        pageId = self.table.page_directory[rid][0]
+        offset = self.table.page_directory[rid][1]
+        indirection = self.get_indirection_base(pageId, offset)
+        schema_encoding = self.get_schema_encoding_base(pageId, offset)
+        # Read the values to get the most updated values
+        for i in range(0, len(schema_encoding)):
+            if schema_encoding[i] == '0':
+                # Read from base page
+                element = self.get_record_element_base(pageId, offset, i)
+            else:
+                # Read from tail page
+                element = self.get_record_element_tail(pageId, offset, i)
+            record_list.append(element * query_columns[i])
+        return record_list
+
+
+
+"""
+def select(self, key, column, query_columns):
+        #** might have to add an if-else statment to check if the record is locked
         rids = self.table.index.locate(column, key) # return a list of RIDs
-        record = [] # List of record objects to return
+        record = [] # return the list of record
         for rid in rids:
-            page_directory = self.table.page_directory[rid] # Get page ID and offset from RID
-            pageID = page_directory[0] # page where record is stored
-            offset = page_directory[1] # offset
-            most_updated = find_most_updated(rid)
+            page_directory = self.table.page_directory[rid] # map to the base page and the offset
+            pageID = page_directory[0]
+            offset, tail_page = find_most_updated(rid) # here return the offset we are looking at
+            if tail_page is False: # if the offset is in base page
+                record_in_byte = self.table.page[pageID].data[offset]
+            else: # the offset is in tail page
+                record_in_byte = self.table.page[pageID].tail_page[offset]
+        # convert the record into readible form
+        for i in range(len(record_in_byte)-4): # delete the internal columns
+            record[i] = int.from_bytes(record_in_byte[(i)8:(i+1)8],byteorder = 'big')
+        return record
+"""
+
 
 
     """
@@ -133,14 +186,19 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
+        # Check if the key even exists in the database
+        if not self.key_exists(key):
+            return False
         rid = self.table.index_directory[key]
         base_pageId = self.table.page_directory[rid][0]
         base_page_offset = self.table.page_directory[rid][1]
         base_page_indirection = self.get_indirection(base_pageId, base_page_offset)
+        # Generate values for tail page
+        tail_page_rid = self.table.gen_rid()
+        time = int(round(time() * 1000))
         if base_page_indirection == MAX_INT:
             # No updates--most updated version is the base page, so need to create snapshot and put in the tail page.
             # Generate RID for snapshot
-            tail_record_rid = self.table.generate_rid()
             self.table.page[]
             # Generate schema encoding for snapshot based on the contents of the updated columns
             new_schema_encoding = ""
@@ -152,7 +210,6 @@ class Query:
             new_schema_encoding += "*"
             # New indirection points back to the base page
             new_indirection = rid
-            time = int(datetime.datetime.utcnow().timestamp())
 
         else:
             # Updates--most updated version is in the tail page, need to get all tail page stuff from the indirection
