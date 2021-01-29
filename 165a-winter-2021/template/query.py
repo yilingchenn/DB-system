@@ -225,7 +225,22 @@ class Query:
     # Returns False if no record exists in the given range
     """
     def sum(self, start_range, end_range, aggregate_column_index):
-        pass
+        key_list = []
+        for i in range(start_range, end_range + 1):
+            if self.key_exists(i):
+                key_list.append(i)
+        if len(key_list) == 0:
+            return False
+        summation = 0
+        query_column = [0] * self.table.num_columns
+        query_column[aggregate_column_index] = 1
+        for key in key_list:
+            summation += self.select(key, 0, query_column)
+        return summation
+
+
+
+
 
     """
     incremenets one column of the record
