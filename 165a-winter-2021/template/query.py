@@ -67,7 +67,14 @@ class Query:
 
     # Returns if the key exists in the dictionary
     def key_exists(self, key):
-        return key in self.table.index_directory.keys()
+        if key in self.table.index_directory.keys():
+            # if self.select(key, 0, [1] * self.table.num_columns)[0].columns == [MAX_INT] * self.table.num_columns:
+            if self.select(key, 0, [1] * self.table.num_columns) == [MAX_INT] * self.table.num_columns:
+                return False
+            else:
+                return True
+        else:
+            return False
 
     """
     # internal Method
@@ -75,6 +82,23 @@ class Query:
     # Returns True upon succesful deletion
     # Return False if record doesn't exist or is locked due to 2PL
     """
+
+    def delete(self, key):
+        if not self.key_exists(key):
+            return False
+        # 1. get the base page RID using key
+        # 2. set base page schema encoding to '0' * num_columns
+        # 3. use the update function to create a new tail with parameter(key, [None]* num_columns)
+        rid = self.table.index_directory[key]
+        pageId = self.table.page_directory[rid][0]
+        offset = self.table.page_directory[rid][1]
+        # overwrite the base page schema_encoding
+        self.set_schema_encoding_base(pageId, offset, '0' * self.table.num_columns)
+        # update
+        self.update(key, [None] * self.table.num_columns)
+        return True
+    """
+    the cheated way
     def delete(self, key):
         if not self.key_exists(key):
             return False
@@ -83,6 +107,7 @@ class Query:
         self.table.page_directory.pop(rid, None)
         self.table.index_directory.pop(key, None)
         return True
+    """
 
     """
     Helper function. Takes in the index at which to insert a record into a column
@@ -152,7 +177,7 @@ class Query:
                 element = self.get_record_element_tail(pageId, offset, i)
             list_element = element * query_columns[i]
             record_list.append(list_element)
-        return record_list
+        return record_list # [Record(rid, key, list_element)]
 
     """
     # Update a record with specified key and columns
@@ -160,8 +185,10 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
+        # convert tuple into list
+        col = [columns]
+        columns = [i for t in col for i in t]
         # Modify columns data to encode MAX_INT as None
-        columns = columns[0]
         for i in range(0, len(columns)):
             if columns[i] is None:
                 columns[i] = MAX_INT
@@ -177,13 +204,14 @@ class Query:
         tail_page_rid = self.table.gen_rid()
         timestamp = int(round(time() * 1000))
         most_updated = self.select(key, 0, [1] * self.table.num_columns)
+        # most_updated = self.select(key, 0, [1] * self.table.num_columns)[0].columns
         # Add tail record to page_directory
         offset = self.table.page[(base_pageId - 1) * self.table.total_columns].num_updates
         self.table.page_directory[tail_page_rid] = (base_pageId, offset)
         # Find new schema encoding
         new_schema_encoding = ""
         for i in range(0, len(most_updated)):
-            if most_updated[i] == columns[i] or columns[i] == MAX_INT:
+            if most_updated[i] == col[i] or col[i] == MAX_INT:
                 if base_page_schema_encoding[i] == '1':
                     new_schema_encoding += '1'
                 else:
@@ -197,8 +225,8 @@ class Query:
         else:
             tail_page_indirection = base_page_indirection
         # Now, write EVERYTHING into tail page since we have all the info we need.
-        for i in range(0, len(columns)): # TODO: start with 1 or 0? Can you update keys? Starting with 0 for now
-            self.table.page[(base_pageId-1)*self.table.total_columns+i].write_tail_page(columns[i])
+        for i in range(0, len(col)): # TODO: start with 1 or 0? Can you update keys? Starting with 0 for now
+            self.table.page[(base_pageId-1)*self.table.total_columns+i].write_tail_page(col[i])
         # Write internal columns into tail page
         self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 4)].write_tail_page(tail_page_rid)
         self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 3)].write_tail_page(timestamp)
@@ -229,6 +257,7 @@ class Query:
         query_column[aggregate_column_index] = 1
         for key in key_list:
             summation += self.select(key, 0, query_column)[aggregate_column_index]
+            # summation += self.select(key, 0, query_column)[0].columns[aggregate_column_index]
         return summation
 
     """

@@ -6,8 +6,8 @@ class Database():
         self.tables = []
         pass
 
+    # Not required for milestone1
     def open(self, path):
-        #content = path.readlines()
         pass
 
     def close(self):
@@ -21,7 +21,6 @@ class Database():
     """
     def create_table(self, name, num_columns, key):
         table = Table(name, num_columns, key)
-        # create pages
         return table
 
     """
