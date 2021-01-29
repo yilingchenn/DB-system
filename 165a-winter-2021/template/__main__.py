@@ -1,8 +1,18 @@
-from template.db import Database
-from template.query import Query
+from db import Database
+from query import Query
 from time import process_time
 from random import choice, randrange
 
+db = Database()
+grades_table = db.create_table('Grades', 0, 5)
+query = Query(grades_table)
+
+for i in range(0, 5):
+    query.insert(i, 93, 4, 3, 5)
+query.delete(3)
+print(query.update(3, [None, 5, None, 3, None]))
+
+"""
 # Student Id and 4 grades
 db = Database()
 grades_table = db.create_table('Grades', 0, 5)
@@ -52,3 +62,4 @@ for i in range(0, 10000):
     query.delete(906659671 + i)
 delete_time_1 = process_time()
 print("Deleting 10k records took:  \t\t\t", delete_time_1 - delete_time_0)
+"""

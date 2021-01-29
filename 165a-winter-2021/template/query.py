@@ -75,11 +75,14 @@ class Query:
     # Returns True upon succesful deletion
     # Return False if record doesn't exist or is locked due to 2PL
     """
-    # Delete a record by setting the base page RID to new tail page RID
-    # implement update but change schema encoding to all 00000
-    # all value to MAX_INT
     def delete(self, key):
-
+        if not self.key_exists(key):
+            return False
+        # find RID
+        rid = self.table.index_directory[key]
+        self.table.page_directory.pop(rid, None)
+        self.table.index_directory.pop(key, None)
+        return True
 
     """
     Helper function. Takes in the index at which to insert a record into a column
