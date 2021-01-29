@@ -7,22 +7,17 @@ class Index:
     def __init__(self, table):
         # One index for each table. All our empty initially.
         # self.indices = [None] *  table.num_columns
-        pass
+        self.table = table
 
     """
     # returns the location of all records with the given value on column "column"
     """
-
     def locate(self, column, value):
-        # search for values through the specific column/page
-        # table = self.Table
-        # find particular col/page
-        # page = Table(column)
-        # search if there is match in the specific column
-        # return the list of RID
-        # rid = [i for i, x in enumerate(page) if x == value]
-        # return rid
-        pass
+        # What is column lol
+        if not (value in self.table.index_directory.keys()):
+            return False
+        else:
+            self.table.index_dictionary[value]
 
     """
     # Returns the RIDs of all records with values in column "column" between "begin" and "end"
