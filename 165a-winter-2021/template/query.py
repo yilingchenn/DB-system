@@ -96,8 +96,8 @@ class Query:
     from (0-total_columns-1), and the function Returns the appropriate page
     index to insert the record.
     """
-    def return_appropriate_index(self, index):
-        return ((self.table.page_range - 1) * self.table.total_columns) + index
+    def return_appropriate_index(self, page_range, index):
+        return ((page_range - 1) * self.table.total_columns) + index
 
     """
     # Insert a record with specified columns
@@ -124,13 +124,13 @@ class Query:
         self.table.index_directory[columns[0]] = rid
         # Put the columns of the record into the visible columns
         for i in range(0, self.table.total_columns - 4):
-            page_index = self.return_appropriate_index(i)
+            page_index = self.return_appropriate_index(self.table.page_range, i)
             self.table.page[page_index].write_base_page(columns[i])
         # Put the information into the internal records
-        self.table.page[self.return_appropriate_index(self.table.total_columns - 4)].write_base_page(rid)
-        self.table.page[self.return_appropriate_index(self.table.total_columns - 3)].write_base_page(timestamp)
-        self.table.page[self.return_appropriate_index(self.table.total_columns - 2)].write_base_page(schema_encoding_string)
-        self.table.page[self.return_appropriate_index(self.table.total_columns - 1)].write_base_page(indirection)
+        self.table.page[self.return_appropriate_index(self.table.page_range, self.table.total_columns - 4)].write_base_page(rid)
+        self.table.page[self.return_appropriate_index(self.table.page_range, self.table.total_columns - 3)].write_base_page(timestamp)
+        self.table.page[self.return_appropriate_index(self.table.page_range, self.table.total_columns - 2)].write_base_page(schema_encoding_string)
+        self.table.page[self.return_appropriate_index(self.table.page_range, self.table.total_columns - 1)].write_base_page(indirection)
         return True
 
     """
@@ -167,33 +167,54 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
+        # Modify columns data to encode MAX_INT as None
+        columns = columns[0]
+        for i in range(0, len(columns)):
+            if columns[i] is None:
+                columns[i] = MAX_INT
         # Check if the key even exists in the database
         if not self.key_exists(key):
             return False
         rid = self.table.index_directory[key]
         base_pageId = self.table.page_directory[rid][0]
         base_page_offset = self.table.page_directory[rid][1]
-        base_page_indirection = self.get_indirection(base_pageId, base_page_offset)
+        base_page_indirection = self.get_indirection_base(base_pageId, base_page_offset)
+        base_page_schema_encoding = self.get_schema_encoding_base(base_pageId, base_page_offset)
         # Generate values for tail page
         tail_page_rid = self.table.gen_rid()
-        time = int(round(time() * 1000))
-        if base_page_indirection == MAX_INT:
-            # No updates--most updated version is the base page, so need to create snapshot and put in the tail page.
-            # Generate RID for snapshot
-            self.table.page[]
-            # Generate schema encoding for snapshot based on the contents of the updated columns
-            new_schema_encoding = ""
-            for i in range(0, columns):
-                if columns[i] is not None:
-                    new_schema_encoding += "1"
+        timestamp = int(round(time() * 1000))
+        most_updated = self.select(key, 0, [1] * self.table.num_columns)
+        # Add tail record to page_directory
+        offset = self.table.page[(base_pageId - 1) * self.table.total_columns].num_updates
+        self.table.page_directory[tail_page_rid] = (base_pageId, offset)
+        # Find new schema encoding
+        new_schema_encoding = ""
+        for i in range(0, len(most_updated)):
+            if most_updated[i] == columns[i] or columns[i] == MAX_INT:
+                if base_page_schema_encoding[i] == '1':
+                    new_schema_encoding += '1'
                 else:
-                    new_schema_encoding += "0"
-            new_schema_encoding += "*"
-            # New indirection points back to the base page
-            new_indirection = rid
-
+                    new_schema_encoding += '0'
+            else:
+                new_schema_encoding += '1'
+        # Find the indirection of the new update
+        if base_page_indirection == MAX_INT:
+            # Base page is the most updated version, so tail page indirection is base page RID
+            tail_page_indirection = rid
         else:
-            # Updates--most updated version is in the tail page, need to get all tail page stuff from the indirection
+            tail_page_indirection = base_page_indirection
+        # Now, write EVERYTHING into tail page since we have all the info we need.
+        for i in range(0, len(columns)): # TODO: start with 1 or 0? Can you update keys? Starting with 0 for now
+            self.table.page[(base_pageId-1)*self.table.total_columns+i].write_tail_page(columns[i])
+        # Write internal columns into tail page
+        self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 4)].write_tail_page(tail_page_rid)
+        self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 3)].write_tail_page(timestamp)
+        self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 2)].write_tail_page(new_schema_encoding)
+        self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 1)].write_tail_page(tail_page_indirection)
+        # Replace the schema encoding and indirection in the base page
+        self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 2)].edit_base_page(base_page_offset, new_schema_encoding)
+        self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 1)].edit_base_page(base_page_offset, tail_page_rid)
+        return True
 
     """
     :param start_range: int         # Start of the key range to aggregate
