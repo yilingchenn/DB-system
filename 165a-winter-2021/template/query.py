@@ -16,7 +16,7 @@ class Query:
         self.table = table
 
     # Returns the indirection of the base page located at pageID, offset.
-    def get_indirection(self, pageId, offset):
+    def get_indirection_base(self, pageId, offset):
         indirection_index = self.table.total_columns - 1
         page_index = ((pageId - 1) * self.table.total_columns) + indirection_index
         page = self.table.page[page_index]
@@ -24,14 +24,14 @@ class Query:
         return current_indirection
 
     # Set the indirection of a base page located at  pageId, offset to an updated value.
-    def set_indirection(self, pageId, offset, new_indirection):
+    def set_indirection_base(self, pageId, offset, new_indirection):
         indirection_index = self.table.total_columns - 1
         page_index = ((pageId - 1) * self.table.total_columns) + indirection_index
         page = self.table.page[page_index]
         page.edit_base_page(offset, new_indirection)
 
     # Get the schema encoding from a base page located at pageID, offset
-    def get_schema_encoding(self, pageID, offset):
+    def get_schema_encoding_base(self, pageID, offset):
         schema_encoding_index = self.table.total_columns - 2
         page_index = ((pageID - 1) * self.table.total_columns) + schema_encoding_index
         page = self.table.page[page_index]
@@ -39,7 +39,7 @@ class Query:
         return current_schema_encoding.decode()
 
     # Set the schema_encoding of a base page located at  pageId, offset to an updated value.
-    def set_schema_encoding(self, pageId, offset, new_schema_encoding):
+    def set_schema_encoding_base(self, pageId, offset, new_schema_encoding):
         schema_encoding_index = self.table.total_columns - 2
         page_index = ((pageId-1) * self.table.total_columns) + schema_encoding_index
         page = self.table.page[page_index]
@@ -138,10 +138,25 @@ class Query:
         base_page_offset = self.table.page_directory[rid][1]
         base_page_indirection = self.get_indirection(base_pageId, base_page_offset)
         if base_page_indirection == MAX_INT:
-            # No updates--most updated version is the base page
-            snap_shot = self.create_snapshot(columns, previous_schema_encoding, )
+            # No updates--most updated version is the base page, so need to create snapshot and put in the tail page.
+            # Generate RID for snapshot
+            tail_record_rid = self.table.generate_rid()
+            self.table.page[]
+            # Generate schema encoding for snapshot based on the contents of the updated columns
+            new_schema_encoding = ""
+            for i in range(0, columns):
+                if columns[i] is not None:
+                    new_schema_encoding += "1"
+                else:
+                    new_schema_encoding += "0"
+            new_schema_encoding += "*"
+            # New indirection points back to the base page
+            new_indirection = rid
+            time = int(datetime.datetime.utcnow().timestamp())
+
         else:
-            # Updates--most updated version is in the tail page
+            # Updates--most updated version is in the tail page, need to get all tail page stuff from the indirection
+
 
     """
     :param start_range: int         # Start of the key range to aggregate
