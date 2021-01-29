@@ -105,7 +105,7 @@ class Query:
         # Generate a new RID from table class
         rid = self.table.gen_rid()
         # timestamp for record
-        time = int(round(time() * 1000))
+        timestamp = int(round(time() * 1000))
         # Schema encoding for internal columns
         schema_encoding_string = '0' * self.table.num_columns
         # Indirection is set to the maximum value of an 8 byte
@@ -125,7 +125,7 @@ class Query:
             self.table.page[page_index].write_base_page(columns[i])
         # Put the information into the internal records
         self.table.page[self.return_appropriate_index(self.table.total_columns - 4)].write_base_page(rid)
-        self.table.page[self.return_appropriate_index(self.table.total_columns - 3)].write_base_page(time)
+        self.table.page[self.return_appropriate_index(self.table.total_columns - 3)].write_base_page(timestamp)
         self.table.page[self.return_appropriate_index(self.table.total_columns - 2)].write_base_page(schema_encoding_string)
         self.table.page[self.return_appropriate_index(self.table.total_columns - 1)].write_base_page(indirection)
         return True
@@ -147,38 +147,16 @@ class Query:
         indirection = self.get_indirection_base(pageId, offset)
         schema_encoding = self.get_schema_encoding_base(pageId, offset)
         # Read the values to get the most updated values
-        for i in range(0, len(schema_encoding)):
+        for i in range(0, self.table.num_columns):
             if schema_encoding[i] == '0':
                 # Read from base page
                 element = self.get_record_element_base(pageId, offset, i)
             else:
                 # Read from tail page
                 element = self.get_record_element_tail(pageId, offset, i)
-            record_list.append(element * query_columns[i])
+            list_element = element * query_columns[i]
+            record_list.append(list_element)
         return record_list
-
-
-
-"""
-def select(self, key, column, query_columns):
-        #** might have to add an if-else statment to check if the record is locked
-        rids = self.table.index.locate(column, key) # return a list of RIDs
-        record = [] # return the list of record
-        for rid in rids:
-            page_directory = self.table.page_directory[rid] # map to the base page and the offset
-            pageID = page_directory[0]
-            offset, tail_page = find_most_updated(rid) # here return the offset we are looking at
-            if tail_page is False: # if the offset is in base page
-                record_in_byte = self.table.page[pageID].data[offset]
-            else: # the offset is in tail page
-                record_in_byte = self.table.page[pageID].tail_page[offset]
-        # convert the record into readible form
-        for i in range(len(record_in_byte)-4): # delete the internal columns
-            record[i] = int.from_bytes(record_in_byte[(i)8:(i+1)8],byteorder = 'big')
-        return record
-"""
-
-
 
     """
     # Update a record with specified key and columns
@@ -186,6 +164,7 @@ def select(self, key, column, query_columns):
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
+        """
         # Check if the key even exists in the database
         if not self.key_exists(key):
             return False
@@ -214,7 +193,7 @@ def select(self, key, column, query_columns):
         else:
             # Updates--most updated version is in the tail page, need to get all tail page stuff from the indirection
 
-
+    """
     """
     :param start_range: int         # Start of the key range to aggregate
     :param end_range: int           # End of the key range to aggregate
