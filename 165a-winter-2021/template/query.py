@@ -37,7 +37,10 @@ class Query:
         page_index = ((pageID - 1) * self.table.total_columns) + schema_encoding_index
         page = self.table.page[page_index]
         current_schema_encoding = page.read_base_page(offset)
-        return current_schema_encoding.decode()
+        schema_encoding_decoded =  current_schema_encoding.decode()
+        # Schema_encoding is 8 bytes, so need to slice the rest of the bytes off from the decoded string
+        schema_encoding_sliced = schema_encoding_decoded[0:self.table.num_columns]
+        return schema_encoding_sliced
 
     # Set the schema_encoding of a base page located at  pageId, offset to an updated value.
     def set_schema_encoding_base(self, pageId, offset, new_schema_encoding):
@@ -164,7 +167,6 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
-        """
         # Check if the key even exists in the database
         if not self.key_exists(key):
             return False
@@ -193,7 +195,6 @@ class Query:
         else:
             # Updates--most updated version is in the tail page, need to get all tail page stuff from the indirection
 
-    """
     """
     :param start_range: int         # Start of the key range to aggregate
     :param end_range: int           # End of the key range to aggregate
