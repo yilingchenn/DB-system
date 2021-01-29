@@ -1,4 +1,4 @@
-from template.table import Table
+from table import Table
 
 class Database():
 
@@ -7,6 +7,7 @@ class Database():
         pass
 
     def open(self, path):
+        #content = path.readlines()
         pass
 
     def close(self):
@@ -20,7 +21,7 @@ class Database():
     """
     def create_table(self, name, num_columns, key):
         table = Table(name, num_columns, key)
-        # create 7 columns in each page
+        # create pages
         return table
 
     """

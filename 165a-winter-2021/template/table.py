@@ -1,5 +1,5 @@
-from template.page import *
-from template.index import Index
+from page import *
+from index import Index
 from time import time
 
 class Record:
@@ -10,7 +10,6 @@ class Record:
         self.indirection = indirection
         self.timestamp = timestamp
         self.schema_encoding = schema_encoding
-        [rid, indirection, timestamp, schema_encoding]
 
 class Table:
 
@@ -22,24 +21,38 @@ class Table:
     def __init__(self, name, num_columns, key):
         self.name = name
         self.key = key
-        # ** maybe consider change 4 to a variable name
-        # ** also just may can have another variable for total_columns
-        self.num_columns = num_columns + 4 # columns + RID + Indirection + Schema + Timestamp
-        self.page_directory = {} #{RID: (page id, indices)}
-        self.index = Index(self)
-        self.page = [Page()] * self.num_columns
-        self.counter = 0
+        # Total columns = num_columns + 4 internal columns (RID, Indirection, Schema, Timestamp)
+        self.total_columns = num_columns + 4
+        self.num_columns = num_columns
+        self.page_directory = {} #{RID: (page_range, offset)}
+        self.index_directory = {} # {Key: RID}
+        self.index = Index(self) # Not sure what to do with this right now
+        # Need to iterate through and allocate a new page every time to avoid changing all pages
+        self.page = []
+        for i in range(0, self.total_columns):
+            new_page = Page()
+            self.page.append(new_page)
+        self.rid_counter = 0
         self.page_range = 1
 
+    # generate RID
     def gen_rid(self):
-        # generate RID
-        self.counter += 1
-        return self.counter
+        self.rid_counter += 1
+        return self.rid_counter
 
+    # If one of the pages does not have capacity, then all pages won't have capacity,
+    # and another page range needs to be added to account for more pages.
     def checker(self):
-        if self.page[len(self.page)-1].num_records == len(self.page[0].data)/8:
-            self.page = self.page + [Page()] * num_columns
-            page_range += 1
+        # Check the capacity of the current page range
+        if not self.page[(self.page_range - 1) * self.total_columns].has_capacity():
+            # Allocate new pages
+            for i in range(0, self.total_columns):
+                new_page = Page()
+                self.page.append(new_page)
+            # Add one to the page_range
+            self.page_range += 1
 
+
+    # Don't have to implement for this cycle
     def __merge(self):
         pass
