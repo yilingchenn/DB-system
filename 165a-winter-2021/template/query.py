@@ -177,7 +177,8 @@ class Query:
                 element = self.get_record_element_tail(pageId, offset, i)
             list_element = element * query_columns[i]
             record_list.append(list_element)
-        return record_list # [Record(rid, key, list_element)]
+        return record_list
+        # [Record(rid, key, list_element)]
 
     """
     # Update a record with specified key and columns

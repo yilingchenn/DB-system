@@ -4,10 +4,12 @@ from time import time
 
 class Record:
 
-    def __init__(self, rid, key, columns):
+    def __init__(self, rid, key, indirection, timestamp, schema_encoding):
         self.rid = rid
         self.key = key
-        self.columns = columns # external columns
+        self.indirection = indirection
+        self.timestamp = timestamp
+        self.schema_encoding = schema_encodings
 
 class Table:
 
