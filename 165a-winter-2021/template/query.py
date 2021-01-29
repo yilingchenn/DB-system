@@ -235,12 +235,8 @@ class Query:
         query_column = [0] * self.table.num_columns
         query_column[aggregate_column_index] = 1
         for key in key_list:
-            summation += self.select(key, 0, query_column)
+            summation += self.select(key, 0, query_column)[aggregate_column_index]
         return summation
-
-
-
-
 
     """
     incremenets one column of the record
