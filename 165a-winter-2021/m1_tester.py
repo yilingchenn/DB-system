@@ -2,8 +2,8 @@ from template.db import Database
 from template.query import Query
 # from template.config import init
 
-# from random import choice, randint, sample, seed
-from colorama import Fore, Back, Style
+from random import choice, randint, sample, seed
+# from colorama import Fore, Back, Style
 
 # Student Id and 4 grades
 # init()
@@ -41,6 +41,7 @@ for key in records:
         updated_columns[i] = value
         original = records[key].copy()
         records[key][i] = value
+        print(updated_columns)
         query.update(key, *updated_columns)
         record = query.select(key, 0, [1, 1, 1, 1, 1])[0]
         error = False
