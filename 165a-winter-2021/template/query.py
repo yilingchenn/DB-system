@@ -1,5 +1,5 @@
-from table import Table, Record
-from index import Index
+from template.table import Table, Record
+from template.index import Index
 from time import time
 
 MAX_INT = 18446744073709551615
@@ -135,25 +135,27 @@ class Query:
     # Returns False if record locked by TPL
     # Assume that select will never be called on a key that doesn't exist
     """
+    # Returning a list of record object, so need to put the columns into record_list and then make a record object that has columns
     def select(self, key, column, query_columns):
         # Need to get the columns from the base page and the columns from the tail page and the schema_encoding.
-        record_list = []
+        col_list = []
         rid = self.table.index_directory[key]
         pageId = self.table.page_directory[rid][0]
         offset = self.table.page_directory[rid][1]
         indirection = self.get_indirection_base(pageId, offset)
         schema_encoding = self.get_schema_encoding_base(pageId, offset)
         # Read the values to get the most updated values
-        for i in range(0, self.table.num_columns):
+        for i in range(0, len(schema_encoding)):
             if schema_encoding[i] == '0':
                 # Read from base page
                 element = self.get_record_element_base(pageId, offset, i)
             else:
                 # Read from tail page
                 element = self.get_record_element_tail(pageId, offset, i)
-            list_element = element * query_columns[i]
-            record_list.append(list_element)
-        return record_list
+            col = element * query_columns[i]
+            col_list.append(col)
+        record = Record(rid, key, col_list)
+        return [record]
 
     """
     # Update a record with specified key and columns
@@ -161,8 +163,9 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
+        # Columns is a TUPLE eg: (4, 5, 6, None) so can't edit the columns directly! Need to look at this function again
         # Modify columns data to encode MAX_INT as None
-        columns = columns[0]
+        # columns = columns[0]
         for i in range(0, len(columns)):
             if columns[i] is None:
                 columns[i] = MAX_INT
@@ -177,7 +180,7 @@ class Query:
         # Generate values for tail page
         tail_page_rid = self.table.gen_rid()
         timestamp = int(round(time() * 1000))
-        most_updated = self.select(key, 0, [1] * self.table.num_columns)
+        most_updated = self.select(key, 0, [1] * self.table.num_columns).columns
         # Add tail record to page_directory
         offset = self.table.page[(base_pageId - 1) * self.table.total_columns].num_updates
         self.table.page_directory[tail_page_rid] = (base_pageId, offset)
@@ -198,7 +201,7 @@ class Query:
         else:
             tail_page_indirection = base_page_indirection
         # Now, write EVERYTHING into tail page since we have all the info we need.
-        for i in range(0, len(columns)): # TODO: start with 1 or 0? Can you update keys? Starting with 0 for now
+        for i in range(0, len(columns)):
             self.table.page[(base_pageId-1)*self.table.total_columns+i].write_tail_page(columns[i])
         # Write internal columns into tail page
         self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 4)].write_tail_page(tail_page_rid)
