@@ -36,18 +36,21 @@ class Query:
         schema_encoding_index = self.table.total_columns - 2
         page_index = ((pageID - 1) * self.table.total_columns) + schema_encoding_index
         page = self.table.page[page_index]
-        current_schema_encoding = page.read_base_page(offset)
-        schema_encoding_decoded =  current_schema_encoding.decode()
-        # Schema_encoding is 8 bytes, so need to slice the rest of the bytes off from the decoded string
-        schema_encoding_sliced = schema_encoding_decoded[0:self.table.num_columns]
-        return schema_encoding_sliced
+        schema_encoding = page.read_base_page(offset)
+        int_schema_encoding = int.from_bytes(schema_encoding, byteorder = "big")
+        str_schema_encoding = str(int_schema_encoding)
+        # for loop to add back beginning zeros in schema encoding
+        for i in range(self.table.num_columns-len(str_schema_encoding)):
+            str_schema_encoding = "0" + str_schema_encoding
+        return str_schema_encoding
 
     # Set the schema_encoding of a base page located at  pageId, offset to an updated value.
     def set_schema_encoding_base(self, pageId, offset, new_schema_encoding):
         schema_encoding_index = self.table.total_columns - 2
         page_index = ((pageId-1) * self.table.total_columns) + schema_encoding_index
         page = self.table.page[page_index]
-        page.edit_base_page(offset, new_schema_encoding)
+        int_schema_encoding = int(new_schema_encoding)
+        page.edit_base_page(offset, int_schema_encoding)
 
     # Given the pageId, offset, and col (0, num_cols), return the most individual element of a record in base page
     def get_record_element_base(self, pageId, offset, col):
@@ -97,7 +100,8 @@ class Query:
         # overwrite the base page schema_encoding
         self.set_schema_encoding_base(pageId, offset, '0'*self.table.num_columns)
         # update
-        self.update(key, [None]*self.table.num_columns)
+
+        self.update(key, *([None]*self.table.num_columns))
         return True
 
     """
@@ -131,6 +135,7 @@ class Query:
         timestamp = int(round(time() * 1000))
         # Schema encoding for internal columns
         schema_encoding_string = '0' * self.table.num_columns
+        schema_encoding = int(schema_encoding_string)
         # Indirection is set to the maximum value of an 8 byte
         #   integer --> MAX_INT because there are no updates
         indirection = MAX_INT
@@ -149,7 +154,7 @@ class Query:
         # Put the information into the internal records
         self.table.page[self.return_appropriate_index(self.table.page_range, self.table.total_columns - 4)].write_base_page(rid)
         self.table.page[self.return_appropriate_index(self.table.page_range, self.table.total_columns - 3)].write_base_page(timestamp)
-        self.table.page[self.return_appropriate_index(self.table.page_range, self.table.total_columns - 2)].write_base_page(schema_encoding_string)
+        self.table.page[self.return_appropriate_index(self.table.page_range, self.table.total_columns - 2)].write_base_page(schema_encoding)
         self.table.page[self.return_appropriate_index(self.table.page_range, self.table.total_columns - 1)].write_base_page(indirection)
         return True
 
@@ -170,7 +175,9 @@ class Query:
         indirection = self.get_indirection_base(pageId, offset)
         schema_encoding = self.get_schema_encoding_base(pageId, offset)
         # Read the values to get the most updated values
-        for i in range(0, self.table.num_columns):
+        num_col = self.table.num_columns
+
+        for i in range(0, num_col):
             if schema_encoding[i] == '0' and indirection == MAX_INT:
                 # Read from base page
                 element = self.get_record_element_base(pageId, offset, i)
@@ -190,10 +197,12 @@ class Query:
     """
     def update(self, key, *columns):
         # Modify columns data to encode MAX_INT as None
-        columns = columns[0]
-        for i in range(0, len(columns)):
-            if columns[i] is None:
-                columns[i] = MAX_INT
+        col = []
+        for i in columns:
+            col.append(i)
+        for i in range(0, len(col)):
+            if col[i] is None:
+                col[i] = MAX_INT
         # Check if the key even exists in the database
         if not self.key_exists(key):
             return False
@@ -212,7 +221,7 @@ class Query:
         # Find new schema encoding
         new_schema_encoding = ""
         for i in range(0, len(most_updated)):
-            if most_updated[i] == columns[i] or columns[i] == MAX_INT:
+            if most_updated[i] == col[i] or col[i] == MAX_INT:
                 if base_page_schema_encoding[i] == '1':
                     new_schema_encoding += '1'
                 else:
@@ -226,15 +235,16 @@ class Query:
         else:
             tail_page_indirection = base_page_indirection
         # Now, write EVERYTHING into tail page since we have all the info we need.
-        for i in range(0, len(columns)): # TODO: start with 1 or 0? Can you update keys? Starting with 0 for now
-            self.table.page[(base_pageId-1)*self.table.total_columns+i].write_tail_page(columns[i])
+        for i in range(0, len(col)): # TODO: start with 1 or 0? Can you update keys? Starting with 0 for now
+            self.table.page[(base_pageId-1)*self.table.total_columns+i].write_tail_page(col[i])
         # Write internal columns into tail page
+        int_schema_encoding = int(new_schema_encoding)
         self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 4)].write_tail_page(tail_page_rid)
         self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 3)].write_tail_page(timestamp)
-        self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 2)].write_tail_page(new_schema_encoding)
+        self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 2)].write_tail_page(int_schema_encoding)
         self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 1)].write_tail_page(tail_page_indirection)
         # Replace the schema encoding and indirection in the base page
-        self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 2)].edit_base_page(base_page_offset, new_schema_encoding)
+        self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 2)].edit_base_page(base_page_offset, int_schema_encoding)
         self.table.page[self.return_appropriate_index(base_pageId, self.table.total_columns - 1)].edit_base_page(base_page_offset, tail_page_rid)
         return True
 
