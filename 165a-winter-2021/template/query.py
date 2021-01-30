@@ -67,7 +67,15 @@ class Query:
 
     # Returns if the key exists in the dictionary
     def key_exists(self, key):
-        return key in self.table.index_directory.keys()
+        if key in self.table.index_directory.keys():
+            # if self.select(key, 0, [1]*self.table.num_columns)[0].columns == [MAX_INT]*self.table.num_columns:
+            temp = self.select(key, 0, [1]*self.table.num_columns)
+            if temp == [MAX_INT]*self.table.num_columns:
+                return False
+            else:
+                return True
+        else:
+            return False
 
     """
     # internal Method
@@ -76,6 +84,24 @@ class Query:
     # Return False if record doesn't exist or is locked due to 2PL
     """
     # Delete a record by setting the RID to -1
+
+    def delete(self, key):
+        if not self.key_exists(key):
+            return False
+        # 1. get the base page RID using key
+        # 2. set base page schema encoding to '0' *n num_columns
+        # 3. use the update function to create a new tail with parameter(key, [None]* num_columns)
+        rid = self.table.index_directory[key]
+        pageId = self.table.page_directory[rid][0]
+        offset = self.table.page_directory[rid][1]
+        # overwrite the base page schema_encoding
+        self.set_schema_encoding_base(pageId, offset, '0'*self.table.num_columns)
+        # update
+        self.update(key, [None]*self.table.num_columns)
+        return True
+
+    """
+    # big cheat
     def delete(self, key):
         if not self.key_exists(key):
             return False
@@ -84,7 +110,7 @@ class Query:
         self.table.page_directory.pop(rid, None)
         self.table.index_directory.pop(key, None)
         return True
-
+    """
     """
     Helper function. Takes in the index at which to insert a record into a column
     from (0-total_columns-1), and the function Returns the appropriate page
@@ -145,9 +171,11 @@ class Query:
         schema_encoding = self.get_schema_encoding_base(pageId, offset)
         # Read the values to get the most updated values
         for i in range(0, self.table.num_columns):
-            if schema_encoding[i] == '0':
+            if schema_encoding[i] == '0' and indirection == MAX_INT:
                 # Read from base page
                 element = self.get_record_element_base(pageId, offset, i)
+            elif schema_encoding[i] =='0':
+                element = self.get_record_element_tail(pageId, offset, i)
             else:
                 # Read from tail page
                 element = self.get_record_element_tail(pageId, offset, i)
