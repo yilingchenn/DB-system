@@ -1,5 +1,5 @@
-from table import Table, Record
-from index import Index
+from template.table import Table, Record
+from template.index import Index
 from time import time
 
 MAX_INT = 18446744073709551615
@@ -170,25 +170,30 @@ class Query:
         # Need to get the columns from the base page and the columns from the tail page and the schema_encoding.
         record_list = []
         rid = self.table.index_directory[key]
-        pageId = self.table.page_directory[rid][0]
-        offset = self.table.page_directory[rid][1]
-        indirection = self.get_indirection_base(pageId, offset)
-        schema_encoding = self.get_schema_encoding_base(pageId, offset)
+        base_pageId = self.table.page_directory[rid][0]
+        base_offset = self.table.page_directory[rid][1]
+        indirection = self.get_indirection_base(base_pageId, base_offset)
+        if indirection != MAX_INT:
+            # We have a tail page, so need to get the tail_offset and tail_pageId from page_directory using
+            # indirection of base page as key
+            tail_pageId = self.table.page_directory[indirection][0]
+            tail_offset = self.table.page_directory[indirection][1]
+        schema_encoding = self.get_schema_encoding_base(base_pageId, base_offset)
         # Read the values to get the most updated values
         num_col = self.table.num_columns
-
         for i in range(0, num_col):
-            if schema_encoding[i] == '0' and indirection == MAX_INT:
+            if schema_encoding[i] == '0':
                 # Read from base page
-                element = self.get_record_element_base(pageId, offset, i)
-            elif schema_encoding[i] =='0':
-                element = self.get_record_element_tail(pageId, offset, i)
+                element = self.get_record_element_base(base_pageId, base_offset, i)
+            # elif schema_encoding[i] == '0':
+            #     element = self.get_record_element_tail(pageId, offset, i)
             else:
                 # Read from tail page
-                element = self.get_record_element_tail(pageId, offset, i)
+                element = self.get_record_element_tail(tail_pageId, tail_offset, i)
             list_element = element * query_columns[i]
             record_list.append(list_element)
-        return record_list
+        record = Record(key, rid, record_list)
+        return [record]
 
     """
     # Update a record with specified key and columns
@@ -206,36 +211,38 @@ class Query:
         # Check if the key even exists in the database
         if not self.key_exists(key):
             return False
-        rid = self.table.index_directory[key]
-        base_pageId = self.table.page_directory[rid][0]
-        base_page_offset = self.table.page_directory[rid][1]
+        base_record_rid = self.table.index_directory[key]
+        base_pageId = self.table.page_directory[base_record_rid][0]
+        base_page_offset = self.table.page_directory[base_record_rid][1]
         base_page_indirection = self.get_indirection_base(base_pageId, base_page_offset)
         base_page_schema_encoding = self.get_schema_encoding_base(base_pageId, base_page_offset)
         # Generate values for tail page
         tail_page_rid = self.table.gen_rid()
         timestamp = int(round(time() * 1000))
-        most_updated = self.select(key, 0, [1] * self.table.num_columns)
+        most_updated = self.select(key, 0, [1] * self.table.num_columns)[0].columns
         # Add tail record to page_directory
-        offset = self.table.page[(base_pageId - 1) * self.table.total_columns].num_updates
+        offset = self.table.page[(base_pageId - 1) * self.table.total_columns].num_updates # All updates at the same offset
         self.table.page_directory[tail_page_rid] = (base_pageId, offset)
         # Find new schema encoding
         new_schema_encoding = ""
         for i in range(0, len(most_updated)):
-            if most_updated[i] == col[i] or col[i] == MAX_INT:
-                if base_page_schema_encoding[i] == '1':
-                    new_schema_encoding += '1'
-                else:
-                    new_schema_encoding += '0'
+            if base_page_schema_encoding[i] == '1' and col[i] == MAX_INT:
+                # Value has been previously updated but is not currently being updated, so need to write the update to the next tail page
+                col[i] = most_updated[i]
+                new_schema_encoding += "1"
+            elif base_page_schema_encoding[i] == '0' and col[i] !=  MAX_INT:
+                # Value is currently being updated in this update function, so need to adjust new_schema_encoding
+                new_schema_encoding += "1"
             else:
-                new_schema_encoding += '1'
+                new_schema_encoding += "0"
         # Find the indirection of the new update
         if base_page_indirection == MAX_INT:
             # Base page is the most updated version, so tail page indirection is base page RID
-            tail_page_indirection = rid
+            tail_page_indirection = base_record_rid
         else:
             tail_page_indirection = base_page_indirection
         # Now, write EVERYTHING into tail page since we have all the info we need.
-        for i in range(0, len(col)): # TODO: start with 1 or 0? Can you update keys? Starting with 0 for now
+        for i in range(0, len(col)):
             self.table.page[(base_pageId-1)*self.table.total_columns+i].write_tail_page(col[i])
         # Write internal columns into tail page
         int_schema_encoding = int(new_schema_encoding)
@@ -267,7 +274,7 @@ class Query:
         query_column = [0] * self.table.num_columns
         query_column[aggregate_column_index] = 1
         for key in key_list:
-            summation += self.select(key, 0, query_column)[aggregate_column_index]
+            summation += self.select(key, 0, query_column)[0].columns[aggregate_column_index]
         return summation
 
     """
