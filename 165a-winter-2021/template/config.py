@@ -1,7 +1,7 @@
 # Global Setting for the Database
 # PageSize, StartRID, etc..
 
-class Config:
+class init:
 
     def __init__(self):
         self.page_size = 4096 # 4K

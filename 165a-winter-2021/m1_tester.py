@@ -1,13 +1,12 @@
 from template.db import Database
 from template.query import Query
-# from template.config import init
-from time import process_time
+from template.config import init
 
-from random import choice, randint, sample, seed, randrange
+from random import choice, randint, sample, seed
 # from colorama import Fore, Back, Style
 
 # Student Id and 4 grades
-# init()
+init()
 db = Database()
 grades_table = db.create_table('Grades', 5, 0)
 query = Query(grades_table)
@@ -50,7 +49,6 @@ for key in records:
                 error = True
         if error:
             print('update error on', original, 'and', updated_columns, ':', record, ', correct:', records[key])
-            print(query.select(key, 0, [1, 1, 1, 1, 1])[0].columns)
         else:
             print('update on', original, 'and', updated_columns, ':', record)
         updated_columns[i] = None
@@ -65,5 +63,3 @@ for c in range(0, grades_table.num_columns):
             print('sum error on [', keys[r[0]], ',', keys[r[1]], ']: ', result, ', correct: ', column_sum)
         else:
             print('sum on [', keys[r[0]], ',', keys[r[1]], ']: ', column_sum)
-
-

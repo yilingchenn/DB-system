@@ -4,7 +4,7 @@ class Page:
 
     def __init__(self):
         self.num_records = 0 # length of base pages
-        self.config = Config() # call the config class
+        self.config = init() # call the config class
         self.data = bytearray(self.config.page_size) # page size
 
     # Check that the page still has less than 512 entries

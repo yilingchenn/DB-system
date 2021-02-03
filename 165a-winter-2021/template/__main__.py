@@ -1,5 +1,5 @@
-from db import Database
-from query import Query
+from template.db import Database
+from template.query import Query
 from time import process_time
 from random import choice, randrange
 
@@ -8,16 +8,7 @@ db = Database()
 grades_table = db.create_table('Grades', 5, 0)
 query = Query(grades_table)
 keys = []
-"""
-for i in range(0, 10):
-    query.insert(906659671 + i, 93, 0, 0, 0)
-    print(query.select(906659671 + i, 0, [1,1,1,1,1]))
-    keys.append(906659671 + i)
-print(query.delete(906659671))
-print(query.delete(906659671))
-print(query.key_exists(906659671))
 
-"""
 insert_time_0 = process_time()
 for i in range(0, 10000):
     query.insert(906659671 + i, 93, 0, 0, 0)
@@ -35,13 +26,11 @@ update_cols = [
     [None, None, None, None, randrange(0, 100)],
 ]
 
-
 update_time_0 = process_time()
 for i in range(0, 10000):
     query.update(choice(keys), *(choice(update_cols)))
 update_time_1 = process_time()
 print("Updating 10k records took:  \t\t\t", update_time_1 - update_time_0)
-
 
 # Measuring Select Performance
 select_time_0 = process_time()
@@ -52,11 +41,12 @@ print("Selecting 10k records took:  \t\t\t", select_time_1 - select_time_0)
 
 # Measuring Aggregate Performance
 agg_time_0 = process_time()
-for i in range(0, 9900, 100):
-    result = query.sum(keys[i], keys[i+100], randrange(0, 5))
+for i in range(0, 10000, 100):
+    start_value = 906659671 + i
+    end_value = start + 100
+    result = query.sum(start_value, end_value, randrange(0, 5))
 agg_time_1 = process_time()
 print("Aggregate 10k of 100 record batch took:\t", agg_time_1 - agg_time_0)
-
 
 # Measuring Delete Performance
 delete_time_0 = process_time()

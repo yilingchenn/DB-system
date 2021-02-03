@@ -33,7 +33,7 @@ class Table:
             self.page.append(new_page)
         self.rid_counter = 0
         self.num_page = 1
-        self.config = Config()
+        self.config = init()
         self.base_page = [1]
         self.tail_page = []
 
