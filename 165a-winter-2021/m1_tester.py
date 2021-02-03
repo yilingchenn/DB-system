@@ -1,8 +1,9 @@
 from template.db import Database
 from template.query import Query
 # from template.config import init
+from time import process_time
 
-from random import choice, randint, sample, seed
+from random import choice, randint, sample, seed, randrange
 # from colorama import Fore, Back, Style
 
 # Student Id and 4 grades
@@ -63,3 +64,5 @@ for c in range(0, grades_table.num_columns):
             print('sum error on [', keys[r[0]], ',', keys[r[1]], ']: ', result, ', correct: ', column_sum)
         else:
             print('sum on [', keys[r[0]], ',', keys[r[1]], ']: ', column_sum)
+
+

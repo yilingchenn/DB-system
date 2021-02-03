@@ -1,13 +1,13 @@
-# from config import *
-
+from template.config import *
 
 class Page:
 
     def __init__(self):
         self.num_records = 0 # length of base pages
         self.num_updates = 0 # length of tail page
-        self.tail_page = bytearray(327680) # No specified size for tail page
-        self.data = bytearray(4096) # base page size
+        self.config = Config() # call the config class
+        self.data = bytearray(self.config.page_size) # base page size
+        self.tail_page = bytearray(self.config.page_size)
 
     # Check that the page still has less than 512 entries
     def has_capacity(self):
@@ -18,6 +18,7 @@ class Page:
 
     # Change the value of the base page at that offset to a new value. Used only for schema encoding and indirection.
     def edit_base_page(self, offset, new_val):
+        # 8 because it's 8 bytes
         self.data[offset*8: (offset+1)*8] = new_val.to_bytes(8, byteorder = 'big')
 
     # Add a column to the base page. Because the key can be greater than 255,
@@ -41,3 +42,4 @@ class Page:
 
     def read_tail_page(self, offset):
         return self.tail_page[offset*8: (offset+1)*8]
+
