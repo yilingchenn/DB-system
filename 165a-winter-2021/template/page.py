@@ -4,10 +4,8 @@ class Page:
 
     def __init__(self):
         self.num_records = 0 # length of base pages
-        self.num_updates = 0 # length of tail page
         self.config = Config() # call the config class
-        self.data = bytearray(self.config.page_size) # base page size
-        self.tail_page = bytearray(self.config.page_size)
+        self.data = bytearray(self.config.page_size) # page size
 
     # Check that the page still has less than 512 entries
     def has_capacity(self):
@@ -17,29 +15,13 @@ class Page:
             return True
 
     # Change the value of the base page at that offset to a new value. Used only for schema encoding and indirection.
-    def edit_base_page(self, offset, new_val):
-        # 8 because it's 8 bytes
+    def edit(self, offset, new_val):
         self.data[offset*8: (offset+1)*8] = new_val.to_bytes(8, byteorder = 'big')
 
-    # Add a column to the base page. Because the key can be greater than 255,
-    # the record will be at self.data[numrecords*8: numrecords+1*8]
-    def write_base_page(self, value):
-        # Check if the the value is a string or integer, which changes the way
-        # you will encode in memory
-        self.data[self.num_records*8: (self.num_records+1)*8] = value.to_bytes(8, byteorder = 'big')
+    def write(self, value):
+        self.data[self.num_records * 8: (self.num_records + 1) * 8] = value.to_bytes(8, byteorder='big')
         self.num_records += 1
 
-    # Add a column to the tail page. Because the key can be greater than 255,
-    # the record will be at self.data[numrecords*8: numrecords+1*8]
-    def write_tail_page(self, value):
-        # Check if the the value is a string or integer, which changes the way
-        # you will encode in memory
-        self.tail_page[self.num_updates*8: (self.num_updates+1)*8] = value.to_bytes(8, byteorder = 'big')
-        self.num_updates += 1
-
-    def read_base_page(self, offset):
+    def read(self, offset):
         return self.data[offset*8: (offset+1)*8]
-
-    def read_tail_page(self, offset):
-        return self.tail_page[offset*8: (offset+1)*8]
 

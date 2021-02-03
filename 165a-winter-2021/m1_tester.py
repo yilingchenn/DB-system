@@ -50,6 +50,7 @@ for key in records:
                 error = True
         if error:
             print('update error on', original, 'and', updated_columns, ':', record, ', correct:', records[key])
+            print(query.select(key, 0, [1, 1, 1, 1, 1])[0].columns)
         else:
             print('update on', original, 'and', updated_columns, ':', record)
         updated_columns[i] = None
