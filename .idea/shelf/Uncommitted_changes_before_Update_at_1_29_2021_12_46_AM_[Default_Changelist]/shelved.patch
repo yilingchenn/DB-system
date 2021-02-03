@@ -1,0 +1,124 @@
+Index: 165a-winter-2021/template/query.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>from template.table import Table, Record\r\nfrom template.index import Index\r\n\r\n\r\nclass Query:\r\n    \"\"\"\r\n    # Creates a Query object that can perform different queries on the specified table \r\n    Queries that fail must return False\r\n    Queries that succeed should return the result or True\r\n    Any query that crashes (due to exceptions) should return False\r\n    \"\"\"\r\n\r\n    def __init__(self, table):\r\n        self.table = table\r\n        pass\r\n\r\n    \"\"\"\r\n    # internal Method\r\n    # Read a record with specified RID\r\n    # Returns True upon succesful deletion\r\n    # Return False if record doesn't exist or is locked due to 2PL\r\n    \"\"\"\r\n    def delete(self, key):\r\n        pass\r\n\r\n    \"\"\"\r\n    # Insert a record with specified columns\r\n    # Return True upon succesful insertion\r\n    # Returns False if insert fails for whatever reason\r\n    \"\"\"\r\n    def insert(self, *columns):\r\n        schema_encoding = '0' * self.table.num_columns\r\n        pass\r\n\r\n    \"\"\"\r\n    # Read a record with specified key\r\n    # :param key: the key value to select records based on\r\n    # :param query_columns: what columns to return. array of 1 or 0 values.\r\n    # Returns a list of Record objects upon success\r\n    # Returns False if record locked by TPL\r\n    # Assume that select will never be called on a key that doesn't exist\r\n    \"\"\"\r\n    def select(self, key, column, query_columns):\r\n        pass\r\n\r\n    \"\"\"\r\n    # Update a record with specified key and columns\r\n    # Returns True if update is succesful\r\n    # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking\r\n    \"\"\"\r\n    def update(self, key, *columns):\r\n        pass\r\n\r\n    \"\"\"\r\n    :param start_range: int         # Start of the key range to aggregate \r\n    :param end_range: int           # End of the key range to aggregate \r\n    :param aggregate_columns: int  # Index of desired column to aggregate\r\n    # this function is only called on the primary key.\r\n    # Returns the summation of the given range upon success\r\n    # Returns False if no record exists in the given range\r\n    \"\"\"\r\n    def sum(self, start_range, end_range, aggregate_column_index):\r\n        pass\r\n\r\n    \"\"\"\r\n    incremenets one column of the record\r\n    this implementation should work if your select and update queries already work\r\n    :param key: the primary of key of the record to increment\r\n    :param column: the column to increment\r\n    # Returns True is increment is successful\r\n    # Returns False if no record matches key or if target record is locked by 2PL.\r\n    \"\"\"\r\n    def increment(self, key, column):\r\n        r = self.select(key, self.table.key, [1] * self.table.num_columns)[0]\r\n        if r is not False:\r\n            updated_columns = [None] * self.table.num_columns\r\n            updated_columns[column] = r[column] + 1\r\n            u = self.update(key, *updated_columns)\r\n            return u\r\n        return False\r\n\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/165a-winter-2021/template/query.py b/165a-winter-2021/template/query.py
+--- a/165a-winter-2021/template/query.py	(revision dc56a5c7bca0a0f38b424ca64c034fd1591ce17e)
++++ b/165a-winter-2021/template/query.py	(date 1611532788939)
+@@ -21,7 +21,14 @@
+     # Return False if record doesn't exist or is locked due to 2PL
+     """
+     def delete(self, key):
+-        pass
++        record = self.table.index.locate(0, key)
++        if record:
++            record.rid = -1
++            return True
++        else:
++            return False
++
++
+ 
+     """
+     # Insert a record with specified columns
+@@ -29,8 +36,16 @@
+     # Returns False if insert fails for whatever reason
+     """
+     def insert(self, *columns):
++        # generate unique rid
++        newrid = len(self.table.page_directory[0])
+         schema_encoding = '0' * self.table.num_columns
+-        pass
++        newrecord = Record(newrid, columns[0], [schema_encoding, newrid, schema_encoding, schema_encoding])
++        self.table.page_directory.add(columns[0], newrecord)
++        record = self.locate(0, columns[0])
++        if record:
++            return True
++        else:
++            return False
+ 
+     """
+     # Read a record with specified key
+@@ -41,7 +56,11 @@
+     # Assume that select will never be called on a key that doesn't exist
+     """
+     def select(self, key, column, query_columns):
+-        pass
++        records = self.table.index.locate(column, key)
++        if records:
++            return records
++        else:
++            return False
+ 
+     """
+     # Update a record with specified key and columns
+@@ -49,7 +68,25 @@
+     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
+     """
+     def update(self, key, *columns):
+-        pass
++        record = self.table.index.locate(0, key)
++        if record:
++            for i in range(self.table.num_columns):
++                # change the index of the indirection columns
++                if record.columns[3][i] == 0:
++                    record.columns[3][i] = 1
++                    # change index of indirection column
++                    record.columns[0][i] = 0000
++                    # update timestamp
++                else:
++                    # change index of indirection column
++                    record.columns[0][i] = 0000
++                    # update timestamp
++            return True
++        else:
++            return False
++
++
++
+ 
+     """
+     :param start_range: int         # Start of the key range to aggregate 
+@@ -60,7 +97,17 @@
+     # Returns False if no record exists in the given range
+     """
+     def sum(self, start_range, end_range, aggregate_column_index):
+-        pass
++        records = []
++        for i in range(start_range, end_range):
++            if self.table.page_directory[key]:
++                records.insert(self.table.page_directory[key])
++        if records:
++            sum = 0
++            for i in range(len(records)):
++                addthis = self.table
++            return sum
++        else:
++            return False
+ 
+     """
+     incremenets one column of the record
+Index: 165a-winter-2021/template/table.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>from template.page import *\r\nfrom template.index import Index\r\nfrom time import time\r\n\r\nINDIRECTION_COLUMN = 0\r\nRID_COLUMN = 1\r\nTIMESTAMP_COLUMN = 2\r\nSCHEMA_ENCODING_COLUMN = 3\r\n\r\n\r\nclass Record:\r\n\r\n    def __init__(self, rid, key, columns):\r\n        self.rid = rid\r\n        self.key = key\r\n        self.columns = columns\r\n\r\nclass Table:\r\n\r\n    \"\"\"\r\n    :param name: string         #Table name\r\n    :param num_columns: int     #Number of Columns: all columns are integer\r\n    :param key: int             #Index of table key in columns\r\n    \"\"\"\r\n    def __init__(self, name, num_columns, key):\r\n        self.name = name\r\n        self.key = key\r\n        self.num_columns = num_columns\r\n        self.page_directory = {}\r\n        self.index = Index(self)\r\n        pass\r\n\r\n    def __merge(self):\r\n        pass\r\n \r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/165a-winter-2021/template/table.py b/165a-winter-2021/template/table.py
+--- a/165a-winter-2021/template/table.py	(revision dc56a5c7bca0a0f38b424ca64c034fd1591ce17e)
++++ b/165a-winter-2021/template/table.py	(date 1611539900557)
+@@ -26,8 +26,9 @@
+         self.name = name
+         self.key = key
+         self.num_columns = num_columns
+-        self.page_directory = {}
++        self.page_directory = {} # RID: Record()
+         self.index = Index(self)
++        self.page = [Page()] * num_columns
+         pass
+ 
+     def __merge(self):
