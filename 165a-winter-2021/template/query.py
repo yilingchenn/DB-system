@@ -176,7 +176,7 @@ class Query:
                 col[i] = MAX_INT
                 self.table.page[(tail_pageId - 1) * self.table.total_columns + i].write(col[i])
             else:
-                self.table.page[(tail_pageId - 1)*self.table.total_columns+i].write(col[i])
+                self.table.page[(tail_pageId - 1) * self.table.total_columns+i].write(col[i])
         # Write internal columns into tail page
         int_schema_encoding = int(new_schema_encoding)
         self.table.page[self.table.return_appropriate_index(tail_pageId, self.table.total_columns - 4)].write(tail_page_rid)
