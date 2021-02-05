@@ -19,7 +19,7 @@ class Query:
     def key_exists(self, key):
         if key in self.table.index_directory.keys():
             # if self.select(key, 0, [1]*self.table.num_columns)[0].columns == [MAX_INT]*self.table.num_columns:
-            temp = self.select(key, 0, [1]*self.table.num_columns)
+            temp = self.select(key, 0, [1]*self.table.num_columns)[0].columns
             if temp == [MAX_INT]*self.table.num_columns:
                 return False
             else:
@@ -47,8 +47,7 @@ class Query:
         # overwrite the base page schema_encoding
         self.table.set_schema_encoding_base(pageId, offset, '0'*self.table.num_columns)
         # update
-
-        self.update(key, *([None]*self.table.num_columns))
+        self.update(key, *([MAX_INT]*self.table.num_columns))
         return True
 
     """

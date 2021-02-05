@@ -9,6 +9,7 @@ grades_table = db.create_table('Grades', 5, 0)
 query = Query(grades_table)
 keys = []
 
+
 insert_time_0 = process_time()
 for i in range(0, 10000):
     query.insert(906659671 + i, 93, 0, 0, 0)
