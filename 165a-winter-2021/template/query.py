@@ -1,8 +1,8 @@
 from template.table import Table, Record
 from template.index import Index
 from time import time
+from template.config import init
 
-MAX_INT = 18446744073709551615
 
 class Query:
     """
@@ -20,7 +20,7 @@ class Query:
         if key in self.table.index_directory.keys():
             # if self.select(key, 0, [1]*self.table.num_columns)[0].columns == [MAX_INT]*self.table.num_columns:
             temp = self.select(key, 0, [1]*self.table.num_columns)
-            if temp == [MAX_INT]*self.table.num_columns:
+            if temp == [self.table.config.max_int]*self.table.num_columns:
                 return False
             else:
                 return True
@@ -66,7 +66,7 @@ class Query:
         schema_encoding = int(schema_encoding_string)
         # Indirection is set to the maximum value of an 8 byte
         #   integer --> MAX_INT because there are no updates
-        indirection = MAX_INT
+        indirection = self.table.config.max_int
         # Check to update base pages
         self.table.checker()
         # Map RID to a tuple (page_range, offset)
@@ -101,7 +101,7 @@ class Query:
         base_pageId = self.table.page_directory[rid][0]
         base_offset = self.table.page_directory[rid][1]
         indirection = self.table.get_indirection_base(base_pageId, base_offset)
-        if indirection != MAX_INT:
+        if indirection != self.table.config.max_int:
             # We have a tail page, so need to get the tail_offset and tail_pageId from page_directory using
             # indirection of base page as key
             tail_pageId = self.table.page_directory[indirection][0]
@@ -165,7 +165,7 @@ class Query:
             else:
                 new_schema_encoding += "0"
         # Find the indirection of the new update
-        if base_page_indirection == MAX_INT:
+        if base_page_indirection == self.table.config.max_int:
             # Base page is the most updated version, so tail page indirection is base page RID
             tail_page_indirection = base_record_rid
         else:
@@ -173,7 +173,7 @@ class Query:
         # Now, write EVERYTHING into tail page since we have all the info we need.
         for i in range(0, len(col)):
             if col[i] == None:
-                col[i] = MAX_INT
+                col[i] = self.table.config.max_int
                 self.table.page[(tail_pageId - 1) * self.table.total_columns + i].write(col[i])
             else:
                 self.table.page[(tail_pageId - 1) * self.table.total_columns+i].write(col[i])
