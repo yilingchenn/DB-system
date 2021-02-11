@@ -6,8 +6,12 @@ class Page:
         self.num_records = 0 # length of base pages
         self.config = init() # call the config class
         self.data = bytearray(self.config.page_size) # page size
+        # lineage refers to the number of updates that have been merged successfully. So if the lineage of a page is 17
+        # and a record in the tail page has an offset of 18, then we need to read from the tail page. However, if the
+        # offset of the record in the tail page is 11, then we're good.
+        self.lineage = 0
 
-    # Check that the page still has less than 512 entries
+        # Check that the page still has less than 512 entries
     def has_capacity(self):
         if self.num_records == len(self.data)/8:
             return False

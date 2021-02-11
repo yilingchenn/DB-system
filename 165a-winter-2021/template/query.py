@@ -95,6 +95,7 @@ class Query:
     # Assume that select will never be called on a key that doesn't exist
     """
     def select(self, key, column, query_columns):
+        # Turn select into a helper function in table class and call it here.
         # Need to get the columns from the base page and the columns from the tail page and the schema_encoding.
         record_list = []
         rid = self.table.index_directory[key]

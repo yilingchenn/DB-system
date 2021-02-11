@@ -24,7 +24,7 @@ class Table:
         # Total columns = num_columns + 4 internal columns (RID, Indirection, Schema, Timestamp)
         self.total_columns = num_columns + 4
         self.num_columns = num_columns
-        self.page_directory = {} #{RID: (page, column, offset)}
+        self.page_directory = {} #{RID: (pageId, offset)}
         self.index_directory = {} # {Key: RID}
         self.index = Index(self) # Not sure what to do with this right now
         # Pages is a list of Page Objects, representing all of the database in memory
@@ -86,6 +86,7 @@ class Table:
         tail_index = base_index//range_size
         # IF teh tail page Id is 0, there haven't been any updates yet and we need to allocate a new tail page
         # If the page is full, allocate a new tail page
+        # TODO: When tail page is full, merge tail page
         if self.tail_pages[tail_index] == 0 or not self.pages[self.return_appropriate_index(self.tail_pages[tail_index] - 1, 0)].has_capacity():
             for i in range(0, self.total_columns):
                 new_page = Page()
@@ -95,8 +96,18 @@ class Table:
         return self.tail_pages[tail_index]
 
     # TODO: Implement Merge for Milestone 2
-    def __merge(self):
-        pass
+    # Merge occurs fully in the backgroun
+    def __merge__(self, base_pageId):
+        # Allocate a new set of pages to eventually be put back into self.pages
+        new_pages = []
+        for i in range(0, self.table.total_columns):
+            new_page = Page()
+            new_pages.append(new_page)
+        # For each element in the set of base pages, get the most updated using select.
+        num_records = self.table.pages[self.table.return_appropriate_index()]
+        starting_index = self.table.return_appropriate_index(base_pageId, 0)
+        for i in range(starting_index, starting_index + self.table.total_columns):
+
 
     # Returns the indirection of the base page located at pageID, offset.
     def get_indirection_base(self, pageId, offset):
