@@ -47,7 +47,6 @@ class Query:
         # overwrite the base page schema_encoding
         self.table.set_schema_encoding_base(pageId, offset, '0'*self.table.num_columns)
         # update
-
         self.update(key, *([None]*self.table.num_columns))
         return True
 
@@ -70,20 +69,21 @@ class Query:
         # Check to update base pages
         self.table.checker()
         # Map RID to a tuple (page_range, offset)
-        offset = self.table.page[(self.table.base_page[len(self.table.base_page)-1] - 1) * self.table.total_columns].num_records
-        base_pageId = self.table.base_page[len(self.table.base_page)-1]
+        offset = self.table.pages[(self.table.base_pages[len(self.table.base_pages)-1] - 1) * self.table.total_columns].num_records
+        base_pageId = self.table.base_pages[len(self.table.base_pages)-1]
         self.table.page_directory[rid] = (base_pageId, offset)
         # Map key to the RID in the index directory
         self.table.index_directory[columns[0]] = rid
         # Put the columns of the record into the visible columns
         for i in range(0, self.table.total_columns - 4):
-            page_index = self.table.return_appropriate_index(self.table.base_page[len(self.table.base_page)-1], i)
-            self.table.page[page_index].write(columns[i])
+            page_index = self.table.return_appropriate_index(self.table.get_current_page_id(), i)
+            self.table.pages[page_index].write(columns[i])
         # Put the information into the internal records
-        self.table.page[self.table.return_appropriate_index(self.table.base_page[len(self.table.base_page)-1], self.table.total_columns - 4)].write(rid)
-        self.table.page[self.table.return_appropriate_index(self.table.base_page[len(self.table.base_page)-1], self.table.total_columns - 3)].write(timestamp)
-        self.table.page[self.table.return_appropriate_index(self.table.base_page[len(self.table.base_page)-1], self.table.total_columns - 2)].write(schema_encoding)
-        self.table.page[self.table.return_appropriate_index(self.table.base_page[len(self.table.base_page)-1], self.table.total_columns - 1)].write(indirection)
+        current_base_page = self.table.get_current_page_id()
+        self.table.pages[self.table.return_appropriate_index(current_base_page, self.table.total_columns - 4)].write(rid)
+        self.table.pages[self.table.return_appropriate_index(current_base_page, self.table.total_columns - 3)].write(timestamp)
+        self.table.pages[self.table.return_appropriate_index(current_base_page, self.table.total_columns - 2)].write(schema_encoding)
+        self.table.pages[self.table.return_appropriate_index(current_base_page, self.table.total_columns - 1)].write(indirection)
         return True
 
     """
@@ -144,22 +144,22 @@ class Query:
         self.table.checker()
         # implement the page range
         tail_pageId = self.table.get_tail_page(base_pageId)
-        # page_range = (last column in that range + 1)/(page_range * num_total columns)
         # Generate values for tail page
         tail_page_rid = self.table.gen_rid()
         timestamp = int(round(time() * 1000))
         most_updated = self.select(key, 0, [1] * self.table.num_columns)[0].columns
         # Add tail record to page_directory
-        offset = self.table.page[(tail_pageId - 1) * self.table.total_columns].num_records # All updates at the same offset
+        offset = self.table.pages[(tail_pageId - 1) * self.table.total_columns].num_records
         self.table.page_directory[tail_page_rid] = (tail_pageId, offset)
         # Find new schema encoding
         new_schema_encoding = ""
         for i in range(0, len(most_updated)):
-            if base_page_schema_encoding[i] == '1' and col[i] == None:
-                # Value has been previously updated but is not currently being updated, so need to write the update to the next tail page
+            if base_page_schema_encoding[i] == '1' and col[i] is None:
+                # Value has been previously updated but is not currently being updated,
+                # so need to write the update to the next tail page
                 col[i] = most_updated[i]
                 new_schema_encoding += "1"
-            elif base_page_schema_encoding[i] == '0' and col[i] != None:
+            elif base_page_schema_encoding[i] == '0' and col[i] is not None:
                 # Value is currently being updated in this update function, so need to adjust new_schema_encoding
                 new_schema_encoding += "1"
             else:
@@ -172,20 +172,20 @@ class Query:
             tail_page_indirection = base_page_indirection
         # Now, write EVERYTHING into tail page since we have all the info we need.
         for i in range(0, len(col)):
-            if col[i] == None:
+            if col[i] is None:
                 col[i] = self.table.config.max_int
-                self.table.page[(tail_pageId - 1) * self.table.total_columns + i].write(col[i])
+                self.table.pages[self.table.return_appropriate_index(tail_pageId, i)].write(col[i])
             else:
-                self.table.page[(tail_pageId - 1) * self.table.total_columns+i].write(col[i])
+                self.table.pages[self.table.return_appropriate_index(tail_pageId, i)].write(col[i])
         # Write internal columns into tail page
         int_schema_encoding = int(new_schema_encoding)
-        self.table.page[self.table.return_appropriate_index(tail_pageId, self.table.total_columns - 4)].write(tail_page_rid)
-        self.table.page[self.table.return_appropriate_index(tail_pageId, self.table.total_columns - 3)].write(timestamp)
-        self.table.page[self.table.return_appropriate_index(tail_pageId, self.table.total_columns - 2)].write(int_schema_encoding)
-        self.table.page[self.table.return_appropriate_index(tail_pageId, self.table.total_columns - 1)].write(tail_page_indirection)
+        self.table.pages[self.table.return_appropriate_index(tail_pageId, self.table.total_columns - 4)].write(tail_page_rid)
+        self.table.pages[self.table.return_appropriate_index(tail_pageId, self.table.total_columns - 3)].write(timestamp)
+        self.table.pages[self.table.return_appropriate_index(tail_pageId, self.table.total_columns - 2)].write(int_schema_encoding)
+        self.table.pages[self.table.return_appropriate_index(tail_pageId, self.table.total_columns - 1)].write(tail_page_indirection)
         # Replace the schema encoding and indirection in the base page
-        self.table.page[self.table.return_appropriate_index(base_pageId, self.table.total_columns - 2)].edit(base_page_offset, int_schema_encoding)
-        self.table.page[self.table.return_appropriate_index(base_pageId, self.table.total_columns - 1)].edit(base_page_offset, tail_page_rid)
+        self.table.pages[self.table.return_appropriate_index(base_pageId, self.table.total_columns - 2)].edit(base_page_offset, int_schema_encoding)
+        self.table.pages[self.table.return_appropriate_index(base_pageId, self.table.total_columns - 1)].edit(base_page_offset, tail_page_rid)
         return True
 
     """

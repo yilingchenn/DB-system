@@ -2,12 +2,14 @@ from template.page import *
 from template.index import Index
 from time import time
 
+
 class Record:
 
     def __init__(self, rid, key, columns):
         self.rid = rid
         self.key = key
         self.columns = columns
+
 
 class Table:
 
@@ -25,55 +27,74 @@ class Table:
         self.page_directory = {} #{RID: (page, column, offset)}
         self.index_directory = {} # {Key: RID}
         self.index = Index(self) # Not sure what to do with this right now
-        # Need to iterate through and allocate a new page every time to avoid changing all pages
-        self.page = []
-        # whenever we create a page, no matter tail or base
+        # Pages is a list of Page Objects, representing all of the database in memory
+        self.pages = []
+        # Need to allocate a new page object instead of doing [Page()] * total_columns to avoid memory issues
         for i in range(0, self.total_columns):
             new_page = Page()
-            self.page.append(new_page)
+            self.pages.append(new_page)
+        # rid_counter keeps track of the current rid to avoid duplicates
         self.rid_counter = 0
+        # num_pages keeps track of the pageID we're currently adding to. Initially, this is one.
         self.num_page = 1
+        # Put all of the config constants into one variable
         self.config = init()
-        self.base_page = [1]
-        self.tail_page = []
+        # base_pages is the list of pageId's that correspond to base pages.
+        self.base_pages = [1]
+        # tail_pages is a list of pageId's that belong to tail pages
+        self.tail_pages = []
 
-        # generate RID
+    # generate RID
     def gen_rid(self):
         self.rid_counter += 1
         return self.rid_counter
 
-    # If one of the pages does not have capacity, then all pages won't have capacity,
-    # and another page range needs to be added to account for more pages.
+    # The last element of the self.base_page array will always correspond to the pageID of
+    # our current set of base pages.
+    def get_current_page_id(self):
+        return self.base_pages[len(self.base_pages)-1]
+
+    # Helper function. Takes in the index at which to insert a record into a column
+    # from (0-total_columns-1), and the function Returns the appropriate page
+    # index to insert the record.
+    def return_appropriate_index(self, page_range, index):
+        return ((page_range - 1) * self.total_columns) + index
+
     def checker(self):
-        # tail = [3,7]
-        # base = [1,2,4,5,6,8]
-        # Check the capacity of the current page range
-        if not self.page[(self.base_page[len(self.base_page)-1] - 1) * self.total_columns].has_capacity():
-            # Allocate new pages
+        # Check the capacity of the current base page. We check the first page (at index 0), but this is arbitrary.
+        # if one of the pages doesn't have capacity, then all of them won't have capacity.
+        if not self.pages[self.return_appropriate_index(self.get_current_page_id(), 0)].has_capacity():
+            # Allocate a new base page
             for i in range(0, self.total_columns):
                 new_page = Page()
-                self.page.append(new_page)
+                self.pages.append(new_page)
             # Add one to the page_range
             self.num_page += 1
-            self.base_page.append(self.num_page)
-            # for every page_range_size
-        if len(self.base_page) % self.config.page_range_size == 1:
+            self.base_pages.append(self.num_page)
+        # If we allocated another base page, need to put in a tail page. However, because we don't have any updates yet,
+        # we don't increment the number of pages.
+        if len(self.base_pages) % self.config.page_range_size == 1:
             # you create an index for the tail page
-            self.tail_page.append(0)
+            self.tail_pages.append(0)
 
+    # Given the pageId of a base page, return the pageId corresponding to the tail page for that base page.
     def get_tail_page(self, base_pageId):
-        base_index = self.base_page.index(base_pageId) # 2
-        range_size = self.config.page_range_size # 3
-        tail_index = base_index//range_size # 0
-        if self.tail_page[tail_index] == 0 or not self.page[(self.tail_page[tail_index] - 1) * self.total_columns].has_capacity():
+        base_index = self.base_pages.index(base_pageId)
+        range_size = self.config.page_range_size
+        # By doing the floor division of the index of the base page ID by the page range size, we can get the
+        # index of where the tail page should be
+        tail_index = base_index//range_size
+        # IF teh tail page Id is 0, there haven't been any updates yet and we need to allocate a new tail page
+        # If the page is full, allocate a new tail page
+        if self.tail_pages[tail_index] == 0 or not self.pages[self.return_appropriate_index(self.tail_pages[tail_index] - 1, 0)].has_capacity():
             for i in range(0, self.total_columns):
                 new_page = Page()
-                self.page.append(new_page)
+                self.pages.append(new_page)
             self.num_page += 1
-            self.tail_page[tail_index] = self.num_page
-        return self.tail_page[tail_index]
+            self.tail_pages[tail_index] = self.num_page
+        return self.tail_pages[tail_index]
 
-    # Don't have to implement for this cycle
+    # TODO: Implement Merge for Milestone 2
     def __merge(self):
         pass
 
@@ -81,7 +102,7 @@ class Table:
     def get_indirection_base(self, pageId, offset):
         indirection_index = self.total_columns - 1
         page_index = ((pageId - 1) * self.total_columns) + indirection_index
-        page = self.page[page_index]
+        page = self.pages[page_index]
         current_indirection = page.read(offset)
         current_indirection_decoded = int.from_bytes(current_indirection, byteorder="big")
         return current_indirection_decoded
@@ -90,14 +111,14 @@ class Table:
     def set_indirection_base(self, pageId, offset, new_indirection):
         indirection_index = self.total_columns - 1
         page_index = ((pageId - 1) * self.total_columns) + indirection_index
-        page = self.page[page_index]
+        page = self.pages[page_index]
         page.edit(offset, new_indirection)
 
     # Get the schema encoding from a base page located at pageID, offset
     def get_schema_encoding_base(self, pageID, offset):
         schema_encoding_index = self.total_columns - 2
         page_index = ((pageID - 1) * self.total_columns) + schema_encoding_index
-        page = self.page[page_index]
+        page = self.pages[page_index]
         schema_encoding = page.read(offset)
         int_schema_encoding = int.from_bytes(schema_encoding, byteorder = "big")
         str_schema_encoding = str(int_schema_encoding)
@@ -110,22 +131,15 @@ class Table:
     def set_schema_encoding_base(self, pageId, offset, new_schema_encoding):
         schema_encoding_index = self.total_columns - 2
         page_index = ((pageId-1) * self.total_columns) + schema_encoding_index
-        page = self.page[page_index]
+        page = self.pages[page_index]
         int_schema_encoding = int(new_schema_encoding)
         page.edit(offset, int_schema_encoding)
 
     # Given the pageId, offset, and col (0, num_cols), return the most individual element of a record in base page
     def get_record_element(self, pageId, offset, col):
         page_index = ((pageId-1) * self.total_columns) + col
-        page = self.page[page_index]
+        page = self.pages[page_index]
         element = page.read(offset)
         element_decoded = int.from_bytes(element, byteorder = "big")
         return element_decoded
 
-    """
-    Helper function. Takes in the index at which to insert a record into a column
-    from (0-total_columns-1), and the function Returns the appropriate page
-    index to insert the record.
-    """
-    def return_appropriate_index(self, page_range, index):
-        return ((page_range - 1) * self.total_columns) + index
