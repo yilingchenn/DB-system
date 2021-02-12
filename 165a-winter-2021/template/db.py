@@ -10,13 +10,13 @@ class Database():
         pass
 
     def open(self, path):
-        # What is path???
-        # Open files for bufferpool, reading from the disk
-        # Need algorithm to decide which page to discard when we need to read and write new data
+        # Path = path to folder where all of our files will be
+        # Initialize the bufferpool to empty slots. You only open once.
         pass
 
     def close(self):
-        # Put dirty pages back into disk, writing to disk
+        # Put dirty pages back into disk, writing to disk.
+        # Have something in bufferpool that manages all of that for simplicity
         pass
 
     """
@@ -25,20 +25,32 @@ class Database():
     :param num_columns: int     #Number of Columns: all columns are integer
     :param key: int             #Index of table key in columns
     """
-    # TODO: MILESTONE 2
+    # Append entire table or just the table name?
     def create_table(self, name, num_columns, key):
         table = Table(name, num_columns, key)
+        self.tables.append(table)
         return table
 
     """
     # Deletes the specified table
     """
-    # TODO: Milestone 2
+    # TODO: figure out how to delete entities that represent this table in the bufferpool and in files
     def drop_table(self, name):
-        pass
+        index = -1
+        for i in range(0, len(self.tables)):
+            if self.tables[i].name == name:
+                index = i
+        # If the specified table was found, pop it
+        if index > 0:
+            self.tables.pop(index)
 
     """
     # Returns table with the passed name
     """
+    # TODO: Milestone 2
     def get_table(self, name):
-        pass
+        for i in range(0, len(self.tables)):
+            if self.tables[i].name == name:
+                return self.tables[i]
+        # Return false if no table with that name exists
+        return False
