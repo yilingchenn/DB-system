@@ -17,20 +17,10 @@ class Bufferpool:
     # Naive way of thinking about insert.
     def write_disk(self):
         # Write each of the 16 slots into a separate file
+        pass
 
     def insert_column(self, column, table_name):
+        pass
 
-
-"""
-What are the steps to Insertion?
-Insert something into a table --> It's completely new! 1st thing ever.
--Do typical insert stuff: rid, indirection, columns, timestamp
--Create an empty file, add some sort of logic that makes sure that the base page
-corresponds to that file
-"""
-
-"""
-
-"""
 
 

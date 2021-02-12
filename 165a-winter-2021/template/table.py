@@ -158,3 +158,47 @@ class Table:
         element_decoded = int.from_bytes(element, byteorder = "big")
         return element_decoded
 
+
+
+"""
+To insert:
+-Check if the last base page is in the bufferpool already
+-If it is in the bufferpool, we can insert using the code we already have! 
+-Then write updated pages back to bufferpool
+-Mark bufferpool slot as dirty 
+-We're done!
+
+BUT if it's not in the bufferpool already
+-If the bufferpool is full, we need to make space for it, so evict the pages we've used least recently
+-Then we need to get it from the file, put it in the format we understand (list of pages)
+-Insert using our existing functions
+-Put the updated into bufferpool
+-Mark page as dirty
+"""
+
+"""
+What is the bufferpool? Nested array of pages, where each element is a slot, and each element is a list of pages 
+representing a base page. 
+[[Page, Page, Page, Page], [Page, Page, Page, Page, Page]]
+"""
+
+
+"""
+To Update: *Assuming that tail page already works and we only ever have one tail page per page range*
+-Check if the tail page is in the bufferpool.
+    -Write it to the bufferpool if its not
+-Check if the key maps to a page ID that is already in the bufferpool. 
+    -Write it to the bufferpool if its not
+-Now, everything is in bufferpool so we can use the syntax that we already have! 
+-Mark both pages as dirty
+"""
+
+
+"""
+To Merge:
+Merge when tail page is full.
+-Fetch the entire page range (multiple base pages) and put into bufferpool
+-Fetch the tail page and put into bufferpool
+-Perform merge function (select most updated, write into new base page)
+-Write into bufferpool
+"""
