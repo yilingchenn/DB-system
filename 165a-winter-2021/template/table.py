@@ -18,7 +18,7 @@ class Table:
     :param num_columns: int     #Number of Columns: all columns are integer
     :param key: int             #Index of table key in columns
     """
-    def __init__(self, name, num_columns, key):
+    def __init__(self, name, num_columns, key, bufferpool):
         self.name = name
         self.key = key
         # Total columns = num_columns + 4 internal columns (RID, Indirection, Schema, Timestamp)
@@ -43,6 +43,8 @@ class Table:
         self.base_pages = [1]
         # tail_pages is a list of pageId's that belong to tail pages
         self.tail_pages = []
+        # Every table in the database has access to the shared bufferpool object
+        self.bufferpool = bufferpool
 
     # generate RID
     def gen_rid(self):
@@ -98,6 +100,8 @@ class Table:
     # TODO: Implement Merge for Milestone 2
     # Merge occurs fully in the backgroun
     def __merge__(self, base_pageId):
+        pass
+        """
         # Allocate a new set of pages to eventually be put back into self.pages
         new_pages = []
         for i in range(0, self.table.total_columns):
@@ -107,7 +111,7 @@ class Table:
         num_records = self.table.pages[self.table.return_appropriate_index()]
         starting_index = self.table.return_appropriate_index(base_pageId, 0)
         for i in range(starting_index, starting_index + self.table.total_columns):
-
+        """
 
     # Returns the indirection of the base page located at pageID, offset.
     def get_indirection_base(self, pageId, offset):

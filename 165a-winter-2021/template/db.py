@@ -5,12 +5,12 @@ class Database():
 
     def __init__(self):
         self.tables = []
-        # Bufferpool is a list of of page objects --> The only thing not on disk
-        self.bufferpool = []
-        pass
+        self.bufferpool = Bufferpool()
 
     def open(self, path):
+        self.bufferpool.set_path(path)
         # Path = path to folder where all of our files will be
+        # Convert all files to list. Return list.
         # Initialize the bufferpool to empty slots. You only open once.
         pass
 
@@ -27,7 +27,7 @@ class Database():
     """
     # Append entire table or just the table name?
     def create_table(self, name, num_columns, key):
-        table = Table(name, num_columns, key)
+        table = Table(name, num_columns, key, self.bufferpool)
         self.tables.append(table)
         return table
 
