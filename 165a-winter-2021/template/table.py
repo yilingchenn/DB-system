@@ -202,3 +202,8 @@ Merge when tail page is full.
 -Perform merge function (select most updated, write into new base page)
 -Write into bufferpool
 """
+
+"""
+bufferpool.create_page(self.pageID, self.name)
+--> create a file in the path
+"""
