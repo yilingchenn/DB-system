@@ -1,7 +1,7 @@
 from template.page import *
 from template.index import Index
 from time import time
-
+from template.bufferpool import Bufferpool
 
 class Record:
 
@@ -27,12 +27,8 @@ class Table:
         self.page_directory = {} #{RID: (pageId, offset)}
         self.index_directory = {} # {Key: RID}
         self.index = Index(self) # Not sure what to do with this right now
-        # Pages is a list of Page Objects, representing all of the database in memory
-        self.pages = []
-        # Need to allocate a new page object instead of doing [Page()] * total_columns to avoid memory issues
-        for i in range(0, self.total_columns):
-            new_page = Page()
-            self.pages.append(new_page)
+        # Files is a list of file names, representing all all of the database stored on disk
+        self.files = []
         # rid_counter keeps track of the current rid to avoid duplicates
         self.rid_counter = 0
         # num_pages keeps track of the pageID we're currently adding to. Initially, this is one.
@@ -40,8 +36,9 @@ class Table:
         # Put all of the config constants into one variable
         self.config = init()
         # base_pages is the list of pageId's that correspond to base pages.
+        # len(base_pages) is the number of base pages, while the last is always the one inserting to.
         self.base_pages = [1]
-        # tail_pages is a list of pageId's that belong to tail pages
+        # tail_pages is a list of pageId's that belong to tail pages.
         self.tail_pages = []
         # Every table in the database has access to the shared bufferpool object
         self.bufferpool = bufferpool
