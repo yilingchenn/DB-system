@@ -1,7 +1,7 @@
-from template.table import Table, Record
+# from template.table import Table, Record
 from template.page import Page
-from template.index import Index
-from time import time
+# from index import Index
+# from time import time
 from template.config import init
 
 import os
@@ -25,6 +25,7 @@ class Bufferpool:
     def __init__(self):
         self.path = "" # Path represents the path to the folder where all files are. Empty initially.
         self.slots = [] # 16 slots for 16 base pages/tail pages of different tables in the database
+        self.config = init()
         for i in range(0, len(self.slots)):
             slot = Slot()
             self.slots.append(slot)
@@ -54,17 +55,17 @@ class Bufferpool:
     # Returns the index of a specified base/tail page with page_id that belongs to a table with the key
     def index_of(self, table_key, page_id):
         for i in range(0, len(self.slots)):
-            if self.slots[i].table_key == table_key and self.slots[i].page_id == page_id:
+            if self.slots[i].table_name == table_key and self.slots[i].page_id == page_id:
                 return i
         return -1
 
     # Write the slot object to files
     def write_file(self, slot_object):
-        if slot_object.is_dirty:
+        if not slot_object.is_clean:
             path = self.path
             pages = slot_object.pages
             # Specify the file name
-            file = str(slot_object.name) + '_' + str(slot_object.pageId) + '.txt'
+            file = str(slot_object.table_name) + '_' + str(slot_object.page_id) + '.txt'
             # Creating a file at specified location
             with open(os.path.join(path, file), 'wb') as ff:
                 num_records = pages[0].num_records
@@ -91,7 +92,7 @@ class Bufferpool:
             offset = 1
             for j in range(0, len(pages)):
                 page = pages[j]
-                for k in range(0, self.config.page_size/8):
+                for k in range(0, int(self.config.page_size/8)):
                     if k < num_records:
                         start = offset * 8
                         end = (offset + 1) * 8
@@ -104,6 +105,14 @@ class Bufferpool:
         self.slots.insert(0, new_slot)
         # 5.) Return slot object.
         return new_slot
+
+    def write_all(self):
+        slots = self.slots
+        for i in range(0, len(slots)):
+            slot_object = slots[i]
+            self.write_file(slot_object)
+
+
 
 
 

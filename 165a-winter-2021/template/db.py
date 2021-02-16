@@ -1,5 +1,6 @@
 from template.table import Table
 from template.bufferpool import Bufferpool
+import os
 
 class Database():
 
@@ -9,6 +10,8 @@ class Database():
 
     def open(self, path):
         self.bufferpool.set_path(path)
+        if not os.path.exists(path):
+            os.makedirs(path)
         # Path = path to folder where all of our files will be
         # Convert all files to list. Return list.
         # Initialize the bufferpool to empty slots. You only open once.
@@ -17,7 +20,8 @@ class Database():
     def close(self):
         # Put dirty pages back into disk, writing to disk.
         # Have something in bufferpool that manages all of that for simplicity
-        pass
+        self.bufferpool.write_all()
+        print("Writing all")
 
     """
     # Creates a new table

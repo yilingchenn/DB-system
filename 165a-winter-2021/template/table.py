@@ -46,7 +46,7 @@ class Table:
 
     # Creates a new file corresponding to the page_id to write/read from
     def create_new_file(self, page_id, table_name):
-        path = self.path
+        path = self.bufferpool.path
         # Specify the file name
         file = str(table_name) + '_' + str(page_id) + '.txt'
         pages = []
@@ -76,6 +76,35 @@ class Table:
     # index to insert the record.
     def return_appropriate_index(self, page_range, index):
         return ((page_range - 1) * self.total_columns) + index
+
+    def get_most_updated(self, key, column, query_columns):
+        record_list = []
+        # Get all information from the base record
+        rid = self.table.index_directory[key]
+        base_pageId = self.page_directory[rid][0]
+        base_offset = self.page_directory[rid][1]
+        bufferpool_slot_base = self.bufferpool.read_file(base_pageId, self.name, self.total_columns)
+        indirection = self.get_indirection_base(bufferpool_slot_base, base_pageId, base_offset)
+        schema_encoding = self.get_schema_encoding_base(base_pageId, base_offset)
+        if indirection != self.config.max_int:
+            # We have a tail page, so need to get the tail_offset and tail_pageId from page_directory using
+            # indirection of base page as key
+            tail_pageId = self.page_directory[indirection][0]
+            tail_offset = self.page_directory[indirection][1]
+            bufferpool_slot_tail = self.bufferpool.read_file(tail_pageId, self.name, self.total_columns)
+        # Read the values to get the most updated values
+        num_col = self.num_columns
+        for i in range(0, num_col):
+            if schema_encoding[i] == '0':
+                # Read from base page
+                element = self.get_record_element(bufferpool_slot_base, base_offset, i)
+            else:
+                # Read from tail page
+                element = self.get_record_element(bufferpool_slot_tail, tail_offset, i)
+            list_element = element * query_columns[i]
+            record_list.append(list_element)
+        record = Record(key, rid, record_list)
+        return record
 
     def checker(self, bufferpool_slot):
         # Check the capacity of the current bufferpool slot.
@@ -127,9 +156,9 @@ class Table:
 
 
     # TODO: Implement Merge for Milestone 2
-    # Merge occurs fully in the backgroun
+    # Merge occurs fully in the background
     def __merge__(self, base_pageId):
-        pass
+
         """
         # Allocate a new set of pages to eventually be put back into self.pages
         new_pages = []
@@ -143,26 +172,26 @@ class Table:
         """
 
     # Returns the indirection of the base page located at pageID, offset.
-    def get_indirection_base(self, pageId, offset):
+    def get_indirection_base(self, bufferpool_object, offset):
+        pages = bufferpool_object.pages
         indirection_index = self.total_columns - 1
-        page_index = ((pageId - 1) * self.total_columns) + indirection_index
-        page = self.pages[page_index]
+        page = pages[indirection_index]
         current_indirection = page.read(offset)
         current_indirection_decoded = int.from_bytes(current_indirection, byteorder="big")
         return current_indirection_decoded
 
     # Set the indirection of a base page located at  pageId, offset to an updated value.
-    def set_indirection_base(self, pageId, offset, new_indirection):
+    def set_indirection_base(self, bufferpool_object, offset, new_indirection):
+        pages = bufferpool_object.pages
         indirection_index = self.total_columns - 1
-        page_index = ((pageId - 1) * self.total_columns) + indirection_index
-        page = self.pages[page_index]
+        page = pages[indirection_index]
         page.edit(offset, new_indirection)
 
     # Get the schema encoding from a base page located at pageID, offset
-    def get_schema_encoding_base(self, pageID, offset):
+    def get_schema_encoding_base(self, bufferpool_object, offset):
+        pages = bufferpool_object.pages
         schema_encoding_index = self.total_columns - 2
-        page_index = ((pageID - 1) * self.total_columns) + schema_encoding_index
-        page = self.pages[page_index]
+        page = pages[schema_encoding_index]
         schema_encoding = page.read(offset)
         int_schema_encoding = int.from_bytes(schema_encoding, byteorder = "big")
         str_schema_encoding = str(int_schema_encoding)
@@ -172,17 +201,17 @@ class Table:
         return str_schema_encoding
 
     # Set the schema_encoding of a base page located at  pageId, offset to an updated value.
-    def set_schema_encoding_base(self, pageId, offset, new_schema_encoding):
+    def set_schema_encoding_base(self, bufferpool_object, offset, new_schema_encoding):
+        pages = bufferpool_object.pages
         schema_encoding_index = self.total_columns - 2
-        page_index = ((pageId-1) * self.total_columns) + schema_encoding_index
-        page = self.pages[page_index]
+        page = pages[schema_encoding_index]
         int_schema_encoding = int(new_schema_encoding)
         page.edit(offset, int_schema_encoding)
 
     # Given the pageId, offset, and col (0, num_cols), return the most individual element of a record in base page
-    def get_record_element(self, pageId, offset, col):
-        page_index = ((pageId-1) * self.total_columns) + col
-        page = self.pages[page_index]
+    def get_record_element(self, bufferpool_object, offset, col):
+        pages = bufferpool_object.pages
+        page = pages[col]
         element = page.read(offset)
         element_decoded = int.from_bytes(element, byteorder = "big")
         return element_decoded

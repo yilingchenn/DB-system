@@ -66,17 +66,14 @@ class Query:
         # Indirection is set to the maximum value of an 8 byte
         #   integer --> MAX_INT because there are no updates
         indirection = self.table.config.max_int
-        """
-        Here --> Need some logic to check whether or not the current base page is in the bufferpool already
-        """
         current_base_page = self.table.get_current_page_id()
         if self.table.bufferpool.index_of(self.table.name, current_base_page) == -1:
             # Base page is not in the bufferpool already, need to load it in
             bufferpool_slot = self.table.bufferpool.read_file(current_base_page, self.table.name, self.table.total_columns)
         else:
             # Base page already in the bufferpool, need to access it and move it to the front
-            slot_index = self.tabe.bufferpool.index_of(self.table.name, current_base_page)
-            bufferpool_slot = self.table.bufferpool[slot_index]
+            slot_index = self.table.bufferpool.index_of(self.table.name, current_base_page)
+            bufferpool_slot = self.table.bufferpool.slots[slot_index]
             self.table.bufferpool.move_to_front(slot_index)
         # Check to update base pages
         self.table.checker(bufferpool_slot)
@@ -90,10 +87,12 @@ class Query:
         for i in range(0, self.table.total_columns - 4):
             bufferpool_slot.pages[i].write(columns[i])
         # Put the information into the internal records
-        bufferpool_slot.pages[self.table.total_columns - 1].write(rid)
-        bufferpool_slot.pages[self.table.total_columns - 2].write(timestamp)
-        bufferpool_slot.pages[self.table.total_columns - 3].write(schema_encoding)
-        bufferpool_slot.pages[self.table.total_columns - 4].write(indirection)
+        bufferpool_slot.pages[self.table.total_columns - 4].write(rid)
+        bufferpool_slot.pages[self.table.total_columns - 3].write(timestamp)
+        bufferpool_slot.pages[self.table.total_columns - 2].write(schema_encoding)
+        bufferpool_slot.pages[self.table.total_columns - 1].write(indirection)
+        # Mark the bufferpool slot as dirty, because its been updated.
+        bufferpool_slot.is_clean = False
         return True
 
     """
@@ -107,30 +106,7 @@ class Query:
     def select(self, key, column, query_columns):
         # Turn select into a helper function in table class and call it here.
         # Need to get the columns from the base page and the columns from the tail page and the schema_encoding.
-        record_list = []
-        rid = self.table.index_directory[key]
-        base_pageId = self.table.page_directory[rid][0]
-        base_offset = self.table.page_directory[rid][1]
-        indirection = self.table.get_indirection_base(base_pageId, base_offset)
-        if indirection != self.table.config.max_int:
-            # We have a tail page, so need to get the tail_offset and tail_pageId from page_directory using
-            # indirection of base page as key
-            tail_pageId = self.table.page_directory[indirection][0]
-            tail_offset = self.table.page_directory[indirection][1]
-        schema_encoding = self.table.get_schema_encoding_base(base_pageId, base_offset)
-        # Read the values to get the most updated values
-        num_col = self.table.num_columns
-        for i in range(0, num_col):
-            if schema_encoding[i] == '0':
-                # Read from base page
-                element = self.table.get_record_element(base_pageId, base_offset, i)
-            else:
-                # Read from tail page
-                element = self.table.get_record_element(tail_pageId, tail_offset, i)
-            list_element = element * query_columns[i]
-            record_list.append(list_element)
-        record = Record(key, rid, record_list)
-        return [record]
+        return self.table.get_most_updated(key, column, query_columns)
 
     """
     # Update a record with specified key and columns
