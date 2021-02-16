@@ -155,10 +155,18 @@ class Table:
             return self.tail_pages[tail_index]
 
 
+    def range_number_to_base_id(self, range_number):
+        base_page_id_array = []
+        start = range_number * self.config.page_range_size
+        end = (range_number + 1) * self.config.page_range_size
+        for i in range(start, end):
+            base_page_id_array.append(i)
+        return base_page_id_array
+
     # TODO: Implement Merge for Milestone 2
     # Merge occurs fully in the background
-    def __merge__(self, base_pageId):
-
+    def __merge__(self, range_number):
+        pass
         """
         # Allocate a new set of pages to eventually be put back into self.pages
         new_pages = []
@@ -166,9 +174,17 @@ class Table:
             new_page = Page()
             new_pages.append(new_page)
         # For each element in the set of base pages, get the most updated using select.
-        num_records = self.table.pages[self.table.return_appropriate_index()]
-        starting_index = self.table.return_appropriate_index(base_pageId, 0)
-        for i in range(starting_index, starting_index + self.table.total_columns):
+        base_page_id_list = self.range_number_to_base_id(range_number)
+        bufferpool_object_base_list = []
+        for i in range(0, len(base_page_id_list)):
+            base_page_id = base_page_id_list[i]
+            bufferpool_object_base_list.append(self.bufferpool.read_file(base_page_id, self.name, self.total_columns))
+        tail_pageId = self.get_tail_page(base_page_id_list[0])
+        for i in range(0, len(bufferpool_object_base_list)):
+            bufferpool_object_base = bufferpool_object_base_list[i]
+            bufferpool_object_base_pages = bufferpool_object_base.pages
+            num_records = bufferpool_object_base_pages[0].num_records
+            for j in range(0, num_records):
         """
 
     # Returns the indirection of the base page located at pageID, offset.
