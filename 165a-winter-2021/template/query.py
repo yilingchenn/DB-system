@@ -81,21 +81,19 @@ class Query:
         # Check to update base pages
         self.table.checker(bufferpool_slot)
         # Map RID to a tuple (page_range, offset)
-        offset = self.table.pages[(self.table.base_pages[len(self.table.base_pages)-1] - 1) * self.table.total_columns].num_records
+        offset = bufferpool_slot.pages[0].num_records
         base_pageId = self.table.base_pages[len(self.table.base_pages)-1]
         self.table.page_directory[rid] = (base_pageId, offset)
         # Map key to the RID in the index directory
         self.table.index_directory[columns[0]] = rid
         # Put the columns of the record into the visible columns
         for i in range(0, self.table.total_columns - 4):
-            page_index = self.table.return_appropriate_index(self.table.get_current_page_id(), i)
-            self.table.pages[page_index].write(columns[i])
+            bufferpool_slot.pages[i].write(columns[i])
         # Put the information into the internal records
-        current_base_page = self.table.get_current_page_id()
-        self.table.pages[self.table.return_appropriate_index(current_base_page, self.table.total_columns - 4)].write(rid)
-        self.table.pages[self.table.return_appropriate_index(current_base_page, self.table.total_columns - 3)].write(timestamp)
-        self.table.pages[self.table.return_appropriate_index(current_base_page, self.table.total_columns - 2)].write(schema_encoding)
-        self.table.pages[self.table.return_appropriate_index(current_base_page, self.table.total_columns - 1)].write(indirection)
+        bufferpool_slot.pages[self.table.total_columns - 1].write(rid)
+        bufferpool_slot.pages[self.table.total_columns - 2].write(timestamp)
+        bufferpool_slot.pages[self.table.total_columns - 3].write(schema_encoding)
+        bufferpool_slot.pages[self.table.total_columns - 4].write(indirection)
         return True
 
     """

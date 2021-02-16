@@ -90,12 +90,12 @@ class Table:
             self.bufferpool.evict_front()
             # Create the new file for new base page.
             self.create_new_file(self.get_current_page_id(), self.name)
+            self.bufferpool.read_file(self.get_current_page_id(), self.name, self.total_columns)
         # If we allocated another base page, need to put in a tail page. However, because we don't have any updates yet,
         # we don't increment the number of pages.
         if len(self.base_pages) % self.config.page_range_size == 1:
             # you allocate a page_id to tail page.
             self.tail_pages.append(0)
-
 
     # Given the pageId of a base page, return the pageId corresponding to the tail page for that base page.
     def get_tail_page(self, base_pageId):
@@ -106,14 +106,25 @@ class Table:
         tail_index = base_index//range_size
         # IF teh tail page Id is 0, there haven't been any updates yet and we need to allocate a new tail page
         # If the page is full, allocate a new tail page
-        # TODO: When tail page is full, merge tail page
-        if self.tail_pages[tail_index] == 0 or not self.pages[self.return_appropriate_index(self.tail_pages[tail_index] - 1, 0)].has_capacity():
-            for i in range(0, self.total_columns):
-                new_page = Page()
-                self.pages.append(new_page)
+        tail_page_id = self.tail_pages[tail_index]
+        if tail_page_id == 0:
+            # No updates yet, need to allocate a pageID for the tail page.
             self.num_page += 1
             self.tail_pages[tail_index] = self.num_page
-        return self.tail_pages[tail_index]
+            self.create_new_file(self.num_page, self.name)
+            return self.tail_pages[tail_index]
+        else:
+            # We have a tail page, need to check if there is capacity.
+            bufferpool_slot = self.bufferpool.read_file(tail_page_id, self.name, self.total_columns)
+            pages = bufferpool_slot.pages
+            if not pages[0].has_capacity:
+                # Current tail page doesn't have capacity, need to create another file.
+                # TODO: Call merge function here! We have the tail pages in bufferpool already.
+                self.num_page += 1
+                self.tail_pages[tail_index] = self.num_page
+                self.create_new_file(self.num_page, self.name)
+            return self.tail_pages[tail_index]
+
 
     # TODO: Implement Merge for Milestone 2
     # Merge occurs fully in the backgroun
