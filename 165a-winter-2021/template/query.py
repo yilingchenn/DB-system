@@ -66,8 +66,20 @@ class Query:
         # Indirection is set to the maximum value of an 8 byte
         #   integer --> MAX_INT because there are no updates
         indirection = self.table.config.max_int
+        """
+        Here --> Need some logic to check whether or not the current base page is in the bufferpool already
+        """
+        current_base_page = self.table.get_current_page_id()
+        if self.table.bufferpool.index_of(self.table.name, current_base_page) == -1:
+            # Base page is not in the bufferpool already, need to load it in
+            bufferpool_slot = self.table.bufferpool.read_file(current_base_page, self.table.name, self.table.total_columns)
+        else:
+            # Base page already in the bufferpool, need to access it and move it to the front
+            slot_index = self.tabe.bufferpool.index_of(self.table.name, current_base_page)
+            bufferpool_slot = self.table.bufferpool[slot_index]
+            self.table.bufferpool.move_to_front(slot_index)
         # Check to update base pages
-        self.table.checker()
+        self.table.checker(bufferpool_slot)
         # Map RID to a tuple (page_range, offset)
         offset = self.table.pages[(self.table.base_pages[len(self.table.base_pages)-1] - 1) * self.table.total_columns].num_records
         base_pageId = self.table.base_pages[len(self.table.base_pages)-1]

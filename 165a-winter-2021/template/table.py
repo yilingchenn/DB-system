@@ -2,6 +2,7 @@ from template.page import *
 from template.index import Index
 from time import time
 from template.bufferpool import Bufferpool
+import os
 
 class Record:
 
@@ -27,8 +28,6 @@ class Table:
         self.page_directory = {} #{RID: (pageId, offset)}
         self.index_directory = {} # {Key: RID}
         self.index = Index(self) # Not sure what to do with this right now
-        # Files is a list of file names, representing all all of the database stored on disk
-        self.files = []
         # rid_counter keeps track of the current rid to avoid duplicates
         self.rid_counter = 0
         # num_pages keeps track of the pageID we're currently adding to. Initially, this is one.
@@ -42,6 +41,25 @@ class Table:
         self.tail_pages = []
         # Every table in the database has access to the shared bufferpool object
         self.bufferpool = bufferpool
+        # Open first file for first base page.
+        self.create_new_file(1, self.name)
+
+    # Creates a new file corresponding to the page_id to write/read from
+    def create_new_file(self, page_id, table_name):
+        path = self.path
+        # Specify the file name
+        file = str(table_name) + '_' + str(page_id) + '.txt'
+        pages = []
+        for i in range(0, self.total_columns):
+            new_page = Page()
+            pages.append(new_page)
+        with open(os.path.join(path, file), 'wb') as ff:
+            # Write 0, no records
+            num_records = 0
+            num_records_bytes = num_records.to_bytes(8, byteorder='big')
+            ff.write(num_records_bytes)
+            for i in range(0, len(pages)):
+                ff.write(pages[i].data)
 
     # generate RID
     def gen_rid(self):
@@ -59,22 +77,25 @@ class Table:
     def return_appropriate_index(self, page_range, index):
         return ((page_range - 1) * self.total_columns) + index
 
-    def checker(self):
-        # Check the capacity of the current base page. We check the first page (at index 0), but this is arbitrary.
-        # if one of the pages doesn't have capacity, then all of them won't have capacity.
-        if not self.pages[self.return_appropriate_index(self.get_current_page_id(), 0)].has_capacity():
-            # Allocate a new base page
-            for i in range(0, self.total_columns):
-                new_page = Page()
-                self.pages.append(new_page)
-            # Add one to the page_range
+    def checker(self, bufferpool_slot):
+        # Check the capacity of the current bufferpool slot.
+        # If its full, we need to allocate a new base page/tail page, create the files
+        # Because the new base page/tail pages are guaranteed to be empty, we can just create empty slots.
+        pages = bufferpool_slot.pages
+        if not pages[0].has_capacity():
+            # Add one to the page_range and allocate files
             self.num_page += 1
             self.base_pages.append(self.num_page)
+            # Need to evict the full pages from bufferpool, which are at the front
+            self.bufferpool.evict_front()
+            # Create the new file for new base page.
+            self.create_new_file(self.get_current_page_id(), self.name)
         # If we allocated another base page, need to put in a tail page. However, because we don't have any updates yet,
         # we don't increment the number of pages.
         if len(self.base_pages) % self.config.page_range_size == 1:
-            # you create an index for the tail page
+            # you allocate a page_id to tail page.
             self.tail_pages.append(0)
+
 
     # Given the pageId of a base page, return the pageId corresponding to the tail page for that base page.
     def get_tail_page(self, base_pageId):
