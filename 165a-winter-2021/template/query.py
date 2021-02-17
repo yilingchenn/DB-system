@@ -173,6 +173,8 @@ class Query:
         # Replace the schema encoding and indirection in the base page
         bufferpool_slot_base.pages[self.table.total_columns - 2].edit(base_page_offset, int_schema_encoding)
         bufferpool_slot_base.pages[self.table.total_columns - 1].edit(base_page_offset, tail_page_rid)
+        bufferpool_slot_base.is_clean = False
+        bufferpool_slot_tail.is_clean = False
         return True
 
     """

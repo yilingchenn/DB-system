@@ -131,16 +131,13 @@ class Table:
             self.create_new_file(self.get_current_page_id(), self.name)
             # Create a new bufferpool object with the new empty base page.
             bufferpool_slot = self.bufferpool.read_file(self.num_page, self.name, self.total_columns)
-            # Check to see if we are in a new Page Range, and allocate empty tail page if we are.
-            if len(self.base_pages) % self.config.page_range_size == 1:
-                self.num_page += 1
-                self.tail_pages.append(self.num_page)
-                # Create the new file for new tail page
-                self.create_new_file(self.num_page, self.name)
-            return bufferpool_slot
-        else:
-            # Current base page has enough space, so return bufferpool_slot
-            return bufferpool_slot
+        # Check to see if we are in a new Page Range, and allocate empty tail page if we are.
+        if len(self.base_pages) % self.config.page_range_size == 1:
+            self.num_page += 1
+            self.tail_pages.append(self.num_page)
+            # Create the new file for new tail page
+            self.create_new_file(self.num_page, self.name)
+        return bufferpool_slot
 
     # Given the pageId of a base page, return the pageId corresponding to the tail page for that base page.
     # Checks if the tail page has capacity, and merges if it doesn't.
