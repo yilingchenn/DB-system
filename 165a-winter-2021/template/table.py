@@ -235,19 +235,7 @@ class Table:
 
 
 """
-To insert:
--Check if the last base page is in the bufferpool already
--If it is in the bufferpool, we can insert using the code we already have! 
--Then write updated pages back to bufferpool
--Mark bufferpool slot as dirty 
--We're done!
 
-BUT if it's not in the bufferpool already
--If the bufferpool is full, we need to make space for it, so evict the pages we've used least recently
--Then we need to get it from the file, put it in the format we understand (list of pages)
--Insert using our existing functions
--Put the updated into bufferpool
--Mark page as dirty
 """
 
 """

@@ -6,11 +6,6 @@ from template.config import init
 
 import os
 
-"""
-Each slot in a bufferpool consists of an entire base page, and each page can hold up to 512 records. 
-"""
-
-
 class Slot:
 
     def __init__(self, table_name, page_id, pages):
@@ -25,7 +20,7 @@ class Bufferpool:
     def __init__(self):
         self.path = "" # Path represents the path to the folder where all files are. Empty initially.
         self.slots = [] # 16 slots for 16 base pages/tail pages of different tables in the database
-        self.config = init()
+        self.config = init() # Config file with all the hard coded variables
         for i in range(0, len(self.slots)):
             slot = Slot()
             self.slots.append(slot)
@@ -34,7 +29,7 @@ class Bufferpool:
     def set_path(self, path):
         self.path = path
 
-    # Evict a slot from the bufferpool  by writing it to files and then popping it off.
+    # Evict a slot from the bufferpool by writing it to files and then popping it off.
     def evict_least_used(self):
         slot_object = self.slots[len(self.slots)-1]
         self.write_file(slot_object)
@@ -46,12 +41,6 @@ class Bufferpool:
         self.slots.pop(i)
         self.slots.insert(0, slot)
 
-    # Evict a slot from the bufferpool by writing it to files and then popping it off.
-    def evict_front(self):
-        slot_object = self.slots[0]
-        self.write_file(slot_object)
-        self.slots.pop(0)
-
     # Returns the index of a specified base/tail page with page_id that belongs to a table with the key
     def index_of(self, table_key, page_id):
         for i in range(0, len(self.slots)):
@@ -60,6 +49,7 @@ class Bufferpool:
         return -1
 
     # Write the slot object to files
+    # Should we evict when we
     def write_file(self, slot_object):
         if not slot_object.is_clean:
             path = self.path
@@ -74,7 +64,8 @@ class Bufferpool:
                 for i in range(0, len(pages)):
                     ff.write(pages[i].data)
 
-    # Assuming that file with page_id and table_name exists already.
+    # Assuming that file with page_id and table_name exists already, we access that base page in the table and read it
+    # into a bufferpool slot, and then return that bufferpool slot.
     def read_file(self, page_id, table_name, num_columns):
         # 1.) Read a file with specified pageID, tableName
         path = self.path
@@ -101,16 +92,22 @@ class Bufferpool:
                     offset += 1
         # 3) Create slot object with page information
         new_slot = Slot(table_name, page_id, pages)
-        # 4.) Put slot object into bufferpool
+        # 4.) Put slot object into bufferpool, evicting pages that haven't been used the longest.
+        if len(self.slots) == 16:
+            self.evict_least_used()
         self.slots.insert(0, new_slot)
         # 5.) Return slot object.
         return new_slot
 
+    # When the database is closed, we want to write everything in the Bufferpool and evict it.
     def write_all(self):
         slots = self.slots
         for i in range(0, len(slots)):
             slot_object = slots[i]
             self.write_file(slot_object)
+        for i in range(0, len(slots)):
+            self.evict_least_used()
+
 
 
 
