@@ -45,7 +45,8 @@ class Query:
         pageId = self.table.page_directory[rid][0]
         offset = self.table.page_directory[rid][1]
         # overwrite the base page schema_encoding
-        self.table.set_schema_encoding_base(pageId, offset, '0'*self.table.num_columns)
+        bufferpool_object = self.table.bufferpool.read_file(pageId, self.table.name, self.table.total_columns)
+        self.table.set_schema_encoding_base(bufferpool_object, offset, '0'*self.table.num_columns)
         # update
         self.update(key, *([None]*self.table.num_columns))
         return True
@@ -106,7 +107,13 @@ class Query:
     def select(self, key, column, query_columns):
         # Turn select into a helper function in table class and call it here.
         # Need to get the columns from the base page and the columns from the tail page and the schema_encoding.
-        return self.table.get_most_updated(key, column, query_columns)
+        columns = self.table.get_most_updated(key)
+        for i in range(0, len(query_columns)):
+            columns[i] = columns[i] * query_columns[i]
+        rid = self.table.index_directory[key]
+        record = Record(rid, key, columns)
+        return [record]
+
 
     """
     # Update a record with specified key and columns

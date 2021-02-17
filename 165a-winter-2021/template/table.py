@@ -71,13 +71,16 @@ class Table:
     def get_current_page_id(self):
         return self.base_pages[len(self.base_pages)-1]
 
-    def get_most_updated(self, key, column, query_columns):
-        record_list = []
+    # From the key of the base page, return an array that represents all the contents of the record that has the key
+    # Returns a list that represents the
+    def get_most_updated(self, key):
         # Get all information from the base record
-        rid = self.table.index_directory[key]
+        rid = self.index_directory[key]
         base_pageId = self.page_directory[rid][0]
         base_offset = self.page_directory[rid][1]
+        # Read the base page into the bufferpool
         bufferpool_slot_base = self.bufferpool.read_file(base_pageId, self.name, self.total_columns)
+        # Get indirection and schema encoding from bufferpool slot
         indirection = self.get_indirection_base(bufferpool_slot_base, base_pageId, base_offset)
         schema_encoding = self.get_schema_encoding_base(base_pageId, base_offset)
         if indirection != self.config.max_int:
@@ -87,6 +90,7 @@ class Table:
             tail_offset = self.page_directory[indirection][1]
             bufferpool_slot_tail = self.bufferpool.read_file(tail_pageId, self.name, self.total_columns)
         # Read the values to get the most updated values
+        record_as_list = []
         num_col = self.num_columns
         for i in range(0, num_col):
             if schema_encoding[i] == '0':
@@ -95,10 +99,8 @@ class Table:
             else:
                 # Read from tail page
                 element = self.get_record_element(bufferpool_slot_tail, tail_offset, i)
-            list_element = element * query_columns[i]
-            record_list.append(list_element)
-        record = Record(key, rid, record_list)
-        return record
+            record_as_list.append(element)
+        return record_as_list
 
     # Checker takes in the bufferpool slot that corresponds to the current base page.
     # Checker checks if it is full, and if it is, then it allocates another base page, loads that empty base page
@@ -128,33 +130,24 @@ class Table:
             return bufferpool_slot
 
     # Given the pageId of a base page, return the pageId corresponding to the tail page for that base page.
+    # Checks if the tail page has capacity, and merges if it doesn't.
+    # Return the slot in the bufferpool.
     def get_tail_page(self, base_pageId):
         base_index = self.base_pages.index(base_pageId)
         range_size = self.config.page_range_size
-        # By doing the floor division of the index of the base page ID by the page range size, we can get the
-        # index of where the tail page should be
         tail_index = base_index//range_size
-        # IF teh tail page Id is 0, there haven't been any updates yet and we need to allocate a new tail page
-        # If the page is full, allocate a new tail page
         tail_page_id = self.tail_pages[tail_index]
-        if tail_page_id == 0:
-            # No updates yet, need to allocate a pageID for the tail page.
+        tail_page_slot = self.bufferpool.read_file(tail_page_id, self.name, self.total_columns)
+        tail_page_slot_pages = tail_page_slot.pages
+        if not tail_page_slot_pages[0].has_capacity():
+            # Current bufferpool doesn't have capacity, so need to merge.
+            # TODO: Call merge function here! We have the tail pages in bufferpool already.
+            current_page_range = base_pageId//range_size
+            self.merge(current_page_range)
             self.num_page += 1
-            self.tail_pages[tail_index] = self.num_page
+            self.tail_page[current_page_range] = self.num_page
             self.create_new_file(self.num_page, self.name)
-            return self.tail_pages[tail_index]
-        else:
-            # We have a tail page, need to check if there is capacity.
-            bufferpool_slot = self.bufferpool.read_file(tail_page_id, self.name, self.total_columns)
-            pages = bufferpool_slot.pages
-            if not pages[0].has_capacity:
-                # Current tail page doesn't have capacity, need to create another file.
-                # TODO: Call merge function here! We have the tail pages in bufferpool already.
-                self.num_page += 1
-                self.tail_pages[tail_index] = self.num_page
-                self.create_new_file(self.num_page, self.name)
-            return self.tail_pages[tail_index]
-
+        return tail_page_id
 
     def range_number_to_base_id(self, range_number):
         base_page_id_array = []
@@ -166,27 +159,38 @@ class Table:
 
     # TODO: Implement Merge for Milestone 2
     # Merge occurs fully in the background
-    def __merge__(self, range_number):
-        pass
-        """
-        # Allocate a new set of pages to eventually be put back into self.pages
-        new_pages = []
-        for i in range(0, self.table.total_columns):
-            new_page = Page()
-            new_pages.append(new_page)
-        # For each element in the set of base pages, get the most updated using select.
+    def merge(self, range_number):
+        # Using the range number, get all of the base pages associated with that page range and put them in bufferpool
         base_page_id_list = self.range_number_to_base_id(range_number)
         bufferpool_object_base_list = []
         for i in range(0, len(base_page_id_list)):
             base_page_id = base_page_id_list[i]
             bufferpool_object_base_list.append(self.bufferpool.read_file(base_page_id, self.name, self.total_columns))
-        tail_pageId = self.get_tail_page(base_page_id_list[0])
         for i in range(0, len(bufferpool_object_base_list)):
             bufferpool_object_base = bufferpool_object_base_list[i]
-            bufferpool_object_base_pages = bufferpool_object_base.pages
-            num_records = bufferpool_object_base_pages[0].num_records
+            bufferpool_object_base_pages_key = bufferpool_object_base.pages[0]
+            num_records = bufferpool_object_base_pages_key.num_records
             for j in range(0, num_records):
-        """
+                # j is the offset.
+                key = self.get_record_element(bufferpool_object_base, j, 0)
+                most_updated_external_cols = self.get_most_updated(key)
+                schema_encoding_string = '0' * self.num_columns
+                schema_encoding = int(schema_encoding_string)
+                timestamp = int(round(time() * 1000))
+                indirection = self.config.max_int
+                self.set_external_columns(bufferpool_object_base, j, most_updated_external_cols)
+                self.set_indirection_base(bufferpool_object_base, j, indirection)
+                self.set_schema_encoding_base(bufferpool_object_base, j, schema_encoding)
+                self.set_timestamp_base(bufferpool_object_base, j, timestamp)
+            bufferpool_object_base.is_clean = False
+
+    # Writes new external cols to the bufferpool object.
+    def set_external_columns(self, bufferpool_object, offset, external_cols):
+        pages = bufferpool_object.pages
+        for i in range(0, len(pages)-4):
+            page = pages[i]
+            element = external_cols[i]
+            page.edit(offset, element)
 
     # Returns the indirection of the base page located at pageID, offset.
     def get_indirection_base(self, bufferpool_object, offset):
@@ -224,6 +228,13 @@ class Table:
         page = pages[schema_encoding_index]
         int_schema_encoding = int(new_schema_encoding)
         page.edit(offset, int_schema_encoding)
+
+    # Set the schema_encoding of a base page located at  pageId, offset to an updated value.
+    def set_timestamp_base(self, bufferpool_object, offset, timestamp):
+        pages = bufferpool_object.pages
+        timestamp_index = self.total_columns - 3
+        page = pages[timestamp_index]
+        page.edit(offset, timestamp)
 
     # Given the pageId, offset, and col (0, num_cols), return the most individual element of a record in base page
     def get_record_element(self, bufferpool_object, offset, col):
