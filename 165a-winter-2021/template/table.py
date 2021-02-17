@@ -71,12 +71,6 @@ class Table:
     def get_current_page_id(self):
         return self.base_pages[len(self.base_pages)-1]
 
-    # Helper function. Takes in the index at which to insert a record into a column
-    # from (0-total_columns-1), and the function Returns the appropriate page
-    # index to insert the record.
-    def return_appropriate_index(self, page_range, index):
-        return ((page_range - 1) * self.total_columns) + index
-
     def get_most_updated(self, key, column, query_columns):
         record_list = []
         # Get all information from the base record
@@ -106,6 +100,9 @@ class Table:
         record = Record(key, rid, record_list)
         return record
 
+    # Checker takes in the bufferpool slot that corresponds to the current base page.
+    # Checker checks if it is full, and if it is, then it allocates another base page, loads that empty base page
+    # into the bufferpool, and returns the corresponding bufferpool slot.
     def checker(self, bufferpool_slot):
         # Check the capacity of the current bufferpool slot.
         # If its full, we need to allocate a new base page/tail page, create the files
@@ -115,16 +112,20 @@ class Table:
             # Add one to the page_range and allocate files
             self.num_page += 1
             self.base_pages.append(self.num_page)
-            # Need to evict the full pages from bufferpool, which are at the front
-            self.bufferpool.evict_front()
             # Create the new file for new base page.
             self.create_new_file(self.get_current_page_id(), self.name)
-            self.bufferpool.read_file(self.get_current_page_id(), self.name, self.total_columns)
-        # If we allocated another base page, need to put in a tail page. However, because we don't have any updates yet,
-        # we don't increment the number of pages.
-        if len(self.base_pages) % self.config.page_range_size == 1:
-            # you allocate a page_id to tail page.
-            self.tail_pages.append(0)
+            # Create a new bufferpool object with the new empty base page.
+            bufferpool_slot = self.bufferpool.read_file(self.num_page, self.name, self.total_columns)
+            # Check to see if we are in a new Page Range, and allocate empty tail page if we are.
+            if len(self.base_pages) % self.config.page_range_size == 1:
+                self.num_page += 1
+                self.tail_pages.append(self.num_page)
+                # Create the new file for new tail page
+                self.create_new_file(self.num_page, self.name)
+            return bufferpool_slot
+        else:
+            # Current base page has enough space, so return bufferpool_slot
+            return bufferpool_slot
 
     # Given the pageId of a base page, return the pageId corresponding to the tail page for that base page.
     def get_tail_page(self, base_pageId):
@@ -233,16 +234,6 @@ class Table:
         return element_decoded
 
 
-
-"""
-
-"""
-
-"""
-What is the bufferpool? Nested array of pages, where each element is a slot, and each element is a list of pages 
-representing a base page. 
-[[Page, Page, Page, Page], [Page, Page, Page, Page, Page]]
-"""
 
 
 """
