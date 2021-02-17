@@ -68,14 +68,7 @@ class Query:
         #   integer --> MAX_INT because there are no updates
         indirection = self.table.config.max_int
         current_base_page = self.table.get_current_page_id()
-        if self.table.bufferpool.index_of(self.table.name, current_base_page) == -1:
-            # Base page is not in the bufferpool already, need to load it in
-            bufferpool_slot = self.table.bufferpool.read_file(current_base_page, self.table.name, self.table.total_columns)
-        else:
-            # Base page already in the bufferpool, need to access it and move it to the front
-            slot_index = self.table.bufferpool.index_of(self.table.name, current_base_page)
-            bufferpool_slot = self.table.bufferpool.slots[slot_index]
-            self.table.bufferpool.move_to_front(slot_index)
+        bufferpool_slot = self.table.return_bufferpool_slot(current_base_page, self.table.name)
         # Check to update base pages
         updated_bufferpool_slot = self.table.checker(bufferpool_slot)
         # Map RID to a tuple (page_range, offset)

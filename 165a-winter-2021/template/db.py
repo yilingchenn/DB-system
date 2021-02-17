@@ -21,7 +21,6 @@ class Database():
         # Put dirty pages back into disk, writing to disk.
         # Have something in bufferpool that manages all of that for simplicity
         self.bufferpool.write_all()
-        print("Writing all")
 
     """
     # Creates a new table

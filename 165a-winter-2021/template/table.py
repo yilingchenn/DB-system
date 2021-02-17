@@ -71,6 +71,19 @@ class Table:
     def get_current_page_id(self):
         return self.base_pages[len(self.base_pages)-1]
 
+    # Given a page ID and the name of the table, return the slot for the bufferpool.
+    def return_bufferpool_slot(self, page_id, table_name):
+        if self.bufferpool.index_of(table_name, page_id) == -1:
+            # Base page is not in the bufferpool already, need to load it in
+            bufferpool_slot = self.bufferpool.read_file(page_id, self.name, self.total_columns)
+        else:
+            # Base page already in the bufferpool, need to access it and move it to the front
+            slot_index = self.bufferpool.index_of(self.name, page_id)
+            bufferpool_slot = self.bufferpool.slots[slot_index]
+            self.bufferpool.move_to_front(slot_index)
+        return bufferpool_slot
+
+
     # From the key of the base page, return an array that represents all the contents of the record that has the key
     # Returns a list that represents the
     def get_most_updated(self, key):
@@ -79,10 +92,10 @@ class Table:
         base_pageId = self.page_directory[rid][0]
         base_offset = self.page_directory[rid][1]
         # Read the base page into the bufferpool
-        bufferpool_slot_base = self.bufferpool.read_file(base_pageId, self.name, self.total_columns)
+        bufferpool_slot_base = self.return_bufferpool_slot(base_pageId, self.name)
         # Get indirection and schema encoding from bufferpool slot
-        indirection = self.get_indirection_base(bufferpool_slot_base, base_pageId, base_offset)
-        schema_encoding = self.get_schema_encoding_base(base_pageId, base_offset)
+        indirection = self.get_indirection_base(bufferpool_slot_base, base_offset)
+        schema_encoding = self.get_schema_encoding_base(bufferpool_slot_base, base_offset)
         if indirection != self.config.max_int:
             # We have a tail page, so need to get the tail_offset and tail_pageId from page_directory using
             # indirection of base page as key
