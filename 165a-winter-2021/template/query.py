@@ -125,18 +125,18 @@ class Query:
         base_record_rid = self.table.index_directory[key]
         base_pageId = self.table.page_directory[base_record_rid][0] # column
         base_page_offset = self.table.page_directory[base_record_rid][1] # offset
-        base_page_indirection = self.table.get_indirection_base(base_pageId, base_page_offset)
-        base_page_schema_encoding = self.table.get_schema_encoding_base(base_pageId, base_page_offset)
-        # Check to update pages
-        self.table.checker()
-        # implement the page range
+        bufferpool_slot_base = self.table.return_bufferpool_slot(base_pageId, self.table.name)
+        base_page_indirection = self.table.get_indirection_base(bufferpool_slot_base, base_page_offset)
+        base_page_schema_encoding = self.table.get_schema_encoding_base(bufferpool_slot_base, base_page_offset)
+        # Get tail page stuff
         tail_pageId = self.table.get_tail_page(base_pageId)
+        bufferpool_slot_tail = self.table.return_bufferpool_slot(tail_pageId, self.table.name)
         # Generate values for tail page
         tail_page_rid = self.table.gen_rid()
         timestamp = int(round(time() * 1000))
-        most_updated = self.select(key, 0, [1] * self.table.num_columns)[0].columns
+        most_updated = self.table.get_most_updated(key)
         # Add tail record to page_directory
-        offset = self.table.pages[(tail_pageId - 1) * self.table.total_columns].num_records
+        offset = bufferpool_slot_tail.pages[0].num_records
         self.table.page_directory[tail_page_rid] = (tail_pageId, offset)
         # Find new schema encoding
         new_schema_encoding = ""
@@ -161,18 +161,18 @@ class Query:
         for i in range(0, len(col)):
             if col[i] is None:
                 col[i] = self.table.config.max_int
-                self.table.pages[self.table.return_appropriate_index(tail_pageId, i)].write(col[i])
+                bufferpool_slot_tail.pages[i].write(col[i])
             else:
-                self.table.pages[self.table.return_appropriate_index(tail_pageId, i)].write(col[i])
+                bufferpool_slot_tail.pages[i].write(col[i])
         # Write internal columns into tail page
         int_schema_encoding = int(new_schema_encoding)
-        self.table.pages[self.table.return_appropriate_index(tail_pageId, self.table.total_columns - 4)].write(tail_page_rid)
-        self.table.pages[self.table.return_appropriate_index(tail_pageId, self.table.total_columns - 3)].write(timestamp)
-        self.table.pages[self.table.return_appropriate_index(tail_pageId, self.table.total_columns - 2)].write(int_schema_encoding)
-        self.table.pages[self.table.return_appropriate_index(tail_pageId, self.table.total_columns - 1)].write(tail_page_indirection)
+        bufferpool_slot_tail.pages[self.table.total_columns - 4].write(tail_page_rid)
+        bufferpool_slot_tail.pages[self.table.total_columns - 3].write(timestamp)
+        bufferpool_slot_tail.pages[self.table.total_columns - 2].write(int_schema_encoding)
+        bufferpool_slot_tail.pages[self.table.total_columns - 1].write(tail_page_indirection)
         # Replace the schema encoding and indirection in the base page
-        self.table.pages[self.table.return_appropriate_index(base_pageId, self.table.total_columns - 2)].edit(base_page_offset, int_schema_encoding)
-        self.table.pages[self.table.return_appropriate_index(base_pageId, self.table.total_columns - 1)].edit(base_page_offset, tail_page_rid)
+        bufferpool_slot_base.pages[self.table.total_columns - 2].edit(base_page_offset, int_schema_encoding)
+        bufferpool_slot_base.pages[self.table.total_columns - 1].edit(base_page_offset, tail_page_rid)
         return True
 
     """

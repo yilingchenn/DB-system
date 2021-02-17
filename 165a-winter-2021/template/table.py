@@ -155,11 +155,11 @@ class Table:
         if not tail_page_slot_pages[0].has_capacity():
             # Current bufferpool doesn't have capacity, so need to merge.
             # TODO: Call merge function here! We have the tail pages in bufferpool already.
-            current_page_range = base_pageId//range_size
-            self.merge(current_page_range)
+            self.merge(tail_index)
             self.num_page += 1
-            self.tail_page[current_page_range] = self.num_page
+            self.tail_page[tail_index] = self.num_page
             self.create_new_file(self.num_page, self.name)
+            tail_page_id = self.num_page
         return tail_page_id
 
     def range_number_to_base_id(self, range_number):
@@ -177,7 +177,7 @@ class Table:
         base_page_id_list = self.range_number_to_base_id(range_number)
         bufferpool_object_base_list = []
         for i in range(0, len(base_page_id_list)):
-            base_page_id = base_page_id_list[i]
+            base_page_id = self.base_page[base_page_id_list[i]]
             bufferpool_object_base_list.append(self.bufferpool.read_file(base_page_id, self.name, self.total_columns))
         for i in range(0, len(bufferpool_object_base_list)):
             bufferpool_object_base = bufferpool_object_base_list[i]
