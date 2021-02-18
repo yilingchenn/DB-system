@@ -151,6 +151,9 @@ class Query:
             elif base_page_schema_encoding[i] == '0' and col[i] is not None:
                 # Value is currently being updated in this update function, so need to adjust new_schema_encoding
                 new_schema_encoding += "1"
+            elif base_page_schema_encoding[i] == '1' and col[i] is not None:
+                # repeated update
+                new_schema_encoding += "1"
             else:
                 new_schema_encoding += "0"
         # Find the indirection of the new update
