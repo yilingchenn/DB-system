@@ -38,7 +38,7 @@ class Table:
         # len(base_pages) is the number of base pages, while the last is always the one inserting to.
         self.base_pages = [1]
         # tail_pages is a list of pageId's that belong to tail pages.
-        self.tail_pages = []
+        self.tail_pages = [0]
         # Every table in the database has access to the shared bufferpool object
         self.bufferpool = bufferpool
         # Open first file for first base page.
@@ -96,12 +96,13 @@ class Table:
         # Get indirection and schema encoding from bufferpool slot
         indirection = self.get_indirection_base(bufferpool_slot_base, base_offset)
         schema_encoding = self.get_schema_encoding_base(bufferpool_slot_base, base_offset)
-        if indirection != self.config.max_int:
+        lineage = bufferpool_slot_base.pages[0].lineage
+        if indirection != self.config.max_int and lineage < indirection:
             # We have a tail page, so need to get the tail_offset and tail_pageId from page_directory using
             # indirection of base page as key
             tail_pageId = self.page_directory[indirection][0]
             tail_offset = self.page_directory[indirection][1]
-            bufferpool_slot_tail = self.bufferpool.read_file(tail_pageId, self.name, self.total_columns)
+            bufferpool_slot_tail = self.return_bufferpool_slot(tail_pageId, self.name)
         # Read the values to get the most updated values
         record_as_list = []
         num_col = self.num_columns
@@ -109,8 +110,11 @@ class Table:
             if schema_encoding[i] == '0':
                 # Read from base page
                 element = self.get_record_element(bufferpool_slot_base, base_offset, i)
+            elif schema_encoding == '1' and lineage < indirection:
+                # Read from base page, because it has been merged already
+                element = self.get_record_element(bufferpool_slot_base, base_offset, i)
             else:
-                # Read from tail page
+                # Read from the tail
                 element = self.get_record_element(bufferpool_slot_tail, tail_offset, i)
             record_as_list.append(element)
         return record_as_list
@@ -131,12 +135,12 @@ class Table:
             self.create_new_file(self.get_current_page_id(), self.name)
             # Create a new bufferpool object with the new empty base page.
             bufferpool_slot = self.bufferpool.read_file(self.num_page, self.name, self.total_columns)
-        # Check to see if we are in a new Page Range, and allocate empty tail page if we are.
-        if len(self.base_pages) % self.config.page_range_size == 1:
-            self.num_page += 1
-            self.tail_pages.append(self.num_page)
-            # Create the new file for new tail page
-            self.create_new_file(self.num_page, self.name)
+            # Check to see if we are in a new Page Range, and allocate empty tail page if we are.
+            if len(self.base_pages) % self.config.page_range_size == 1:
+                self.num_page += 1
+                self.tail_pages.append(self.num_page)
+                # Create the new file for new tail page
+                self.create_new_file(self.num_page, self.name)
         return bufferpool_slot
 
     # Given the pageId of a base page, return the pageId corresponding to the tail page for that base page.
@@ -147,17 +151,24 @@ class Table:
         range_size = self.config.page_range_size
         tail_index = base_index//range_size
         tail_page_id = self.tail_pages[tail_index]
-        tail_page_slot = self.bufferpool.read_file(tail_page_id, self.name, self.total_columns)
-        tail_page_slot_pages = tail_page_slot.pages
-        if not tail_page_slot_pages[0].has_capacity():
-            # Current bufferpool doesn't have capacity, so need to merge.
-            # TODO: Call merge function here! We have the tail pages in bufferpool already.
-            self.merge(tail_index)
+        if tail_page_id == 0:
+            # Tail page has not been allocated yet. Need to allocate it, we know we will have space becasue its empty.
             self.num_page += 1
-            self.tail_page[tail_index] = self.num_page
+            self.tail_pages[tail_index] = self.num_page
             self.create_new_file(self.num_page, self.name)
-            tail_page_id = self.num_page
-        return tail_page_id
+            return self.num_page
+        else:
+            tail_page_slot = self.bufferpool.read_file(tail_page_id, self.name, self.total_columns)
+            tail_page_slot_pages = tail_page_slot.pages
+            if not tail_page_slot_pages[0].has_capacity():
+                # Current bufferpool doesn't have capacity, so need to merge.
+                # TODO: Call merge function here! We have the tail pages in bufferpool already.
+                self.merge(tail_index)
+                self.num_page += 1
+                self.tail_page[tail_index] = self.num_page
+                self.create_new_file(self.num_page, self.name)
+                tail_page_id = self.num_page
+            return tail_page_id
 
     def range_number_to_base_id(self, range_number):
         base_page_id_array = []
@@ -175,23 +186,24 @@ class Table:
         bufferpool_object_base_list = []
         for i in range(0, len(base_page_id_list)):
             base_page_id = self.base_page[base_page_id_list[i]]
-            bufferpool_object_base_list.append(self.bufferpool.read_file(base_page_id, self.name, self.total_columns))
+            bufferpool_object_base_list.append(self.return_bufferpool_slot(base_page_id, self.name, self.total_columns))
         for i in range(0, len(bufferpool_object_base_list)):
             bufferpool_object_base = bufferpool_object_base_list[i]
             bufferpool_object_base_pages_key = bufferpool_object_base.pages[0]
             num_records = bufferpool_object_base_pages_key.num_records
+            lineage = -1
             for j in range(0, num_records):
                 # j is the offset.
                 key = self.get_record_element(bufferpool_object_base, j, 0)
                 most_updated_external_cols = self.get_most_updated(key)
-                schema_encoding_string = '0' * self.num_columns
-                schema_encoding = int(schema_encoding_string)
-                timestamp = int(round(time() * 1000))
-                indirection = self.config.max_int
                 self.set_external_columns(bufferpool_object_base, j, most_updated_external_cols)
-                self.set_indirection_base(bufferpool_object_base, j, indirection)
-                self.set_schema_encoding_base(bufferpool_object_base, j, schema_encoding)
-                self.set_timestamp_base(bufferpool_object_base, j, timestamp)
+                # get indirection of base page record
+                indirection_base = self.get_indirection_base(bufferpool_object_base, j)
+                if (indirection_base > lineage):
+                    lineage = indirection_base
+            # Set lineage for all objects in bufferpool object
+            for k in range(0, len(bufferpool_object_base.pages)):
+                bufferpool_object_base[i].lineage = lineage
             bufferpool_object_base.is_clean = False
 
     # Writes new external cols to the bufferpool object.
@@ -253,26 +265,3 @@ class Table:
         element = page.read(offset)
         element_decoded = int.from_bytes(element, byteorder = "big")
         return element_decoded
-
-
-
-
-"""
-To Update: *Assuming that tail page already works and we only ever have one tail page per page range*
--Check if the tail page is in the bufferpool.
-    -Write it to the bufferpool if its not
--Check if the key maps to a page ID that is already in the bufferpool. 
-    -Write it to the bufferpool if its not
--Now, everything is in bufferpool so we can use the syntax that we already have! 
--Mark both pages as dirty
-"""
-
-
-"""
-To Merge:
-Merge when tail page is full.
--Fetch the entire page range (multiple base pages) and put into bufferpool
--Fetch the tail page and put into bufferpool
--Perform merge function (select most updated, write into new base page)
--Write into bufferpool
-"""

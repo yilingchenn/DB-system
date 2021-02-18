@@ -58,9 +58,15 @@ class Bufferpool:
             file = str(slot_object.table_name) + '_' + str(slot_object.page_id) + '.txt'
             # Creating a file at specified location
             with open(os.path.join(path, file), 'wb') as ff:
+                # Write num_records to the first line
                 num_records = pages[0].num_records
                 num_records_bytes = num_records.to_bytes(8, byteorder='big')
                 ff.write(num_records_bytes)
+                # Write lineage to the second line
+                lineage = pages[0].lineage
+                lineage_bytes = lineage.to_bytes(8, byteorder='big')
+                ff.write(lineage_bytes)
+                # Write remaining byte arrays
                 for i in range(0, len(pages)):
                     ff.write(pages[i].data)
 
@@ -80,7 +86,9 @@ class Bufferpool:
                 pages.append(new_page)
             # The first 8 bytes of every file contain the number of records. Extract the number of records first.
             num_records = int.from_bytes(f[0:8], byteorder='big')
-            offset = 1
+            # The second 8 bytes of every file contain the lineage of all the pages. Extract the lineage
+            lineage = int.from_bytes(f[8:16], byteorder='big')
+            offset = 2
             for j in range(0, len(pages)):
                 page = pages[j]
                 for k in range(0, int(self.config.page_size/8)):

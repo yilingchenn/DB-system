@@ -6,9 +6,9 @@ class Page:
         self.num_records = 0 # length of base pages
         self.config = init() # call the config class
         self.data = bytearray(self.config.page_size) # page size
-        # lineage refers to the number of updates that have been merged successfully. So if the lineage of a page is 17
-        # and a record in the tail page has an offset of 18, then we need to read from the tail page. However, if the
-        # offset of the record in the tail page is 11, then we're good.
+        # lineage refers to largest RID of a record in the tail page that has been merged into base pages successfully
+        # Eg: If lineage is 1001 and we encounter a RID in tail page with RID 1000 we know that the most updated is
+        # If lineage 1001 and we encounter an indirection in base page that is 1002 we know we must go to the tail page
         self.lineage = 0
 
         # Check that the page still has less than 512 entries
