@@ -125,16 +125,18 @@ class Query:
         base_record_rid = self.table.index_directory[key]
         base_pageId = self.table.page_directory[base_record_rid][0] # column
         base_page_offset = self.table.page_directory[base_record_rid][1] # offset
-        bufferpool_slot_base = self.table.return_bufferpool_slot(base_pageId, self.table.name)
-        base_page_indirection = self.table.get_indirection_base(bufferpool_slot_base, base_page_offset)
-        base_page_schema_encoding = self.table.get_schema_encoding_base(bufferpool_slot_base, base_page_offset)
+        most_updated = self.table.get_most_updated(key)
         # Get tail page stuff
         tail_pageId = self.table.get_tail_page(base_pageId)
         bufferpool_slot_tail = self.table.return_bufferpool_slot(tail_pageId, self.table.name)
+        most_updated = self.table.get_most_updated(key)
         # Generate values for tail page
         tail_page_rid = self.table.gen_rid()
         timestamp = int(round(time() * 1000))
-        most_updated = self.table.get_most_updated(key)
+        # Get base values afterwards
+        bufferpool_slot_base = self.table.return_bufferpool_slot(base_pageId, self.table.name)
+        base_page_indirection = self.table.get_indirection_base(bufferpool_slot_base, base_page_offset)
+        base_page_schema_encoding = self.table.get_schema_encoding_base(bufferpool_slot_base, base_page_offset)
         # Add tail record to page_directory
         offset = bufferpool_slot_tail.pages[0].num_records
         self.table.page_directory[tail_page_rid] = (tail_pageId, offset)

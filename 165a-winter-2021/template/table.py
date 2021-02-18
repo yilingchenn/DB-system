@@ -110,7 +110,7 @@ class Table:
             if schema_encoding[i] == '0':
                 # Read from base page
                 element = self.get_record_element(bufferpool_slot_base, base_offset, i)
-            elif schema_encoding == '1' and lineage < indirection:
+            elif schema_encoding[i] == '1' and lineage >= indirection:
                 # Read from base page, because it has been merged already
                 element = self.get_record_element(bufferpool_slot_base, base_offset, i)
             else:
@@ -158,14 +158,14 @@ class Table:
             self.create_new_file(self.num_page, self.name)
             return self.num_page
         else:
-            tail_page_slot = self.bufferpool.read_file(tail_page_id, self.name, self.total_columns)
+            tail_page_slot = self.return_bufferpool_slot(tail_page_id, self.name)
             tail_page_slot_pages = tail_page_slot.pages
             if not tail_page_slot_pages[0].has_capacity():
                 # Current bufferpool doesn't have capacity, so need to merge.
                 # TODO: Call merge function here! We have the tail pages in bufferpool already.
                 self.merge(tail_index)
                 self.num_page += 1
-                self.tail_page[tail_index] = self.num_page
+                self.tail_pages[tail_index] = self.num_page
                 self.create_new_file(self.num_page, self.name)
                 tail_page_id = self.num_page
             return tail_page_id
@@ -184,14 +184,14 @@ class Table:
         # Using the range number, get all of the base pages associated with that page range and put them in bufferpool
         base_page_id_list = self.range_number_to_base_id(range_number)
         bufferpool_object_base_list = []
+        lineage = -1
         for i in range(0, len(base_page_id_list)):
-            base_page_id = self.base_page[base_page_id_list[i]]
-            bufferpool_object_base_list.append(self.return_bufferpool_slot(base_page_id, self.name, self.total_columns))
+            base_page_id = self.base_pages[base_page_id_list[i]]
+            bufferpool_object_base_list.append(self.return_bufferpool_slot(base_page_id, self.name))
         for i in range(0, len(bufferpool_object_base_list)):
             bufferpool_object_base = bufferpool_object_base_list[i]
             bufferpool_object_base_pages_key = bufferpool_object_base.pages[0]
             num_records = bufferpool_object_base_pages_key.num_records
-            lineage = -1
             for j in range(0, num_records):
                 # j is the offset.
                 key = self.get_record_element(bufferpool_object_base, j, 0)
@@ -199,12 +199,15 @@ class Table:
                 self.set_external_columns(bufferpool_object_base, j, most_updated_external_cols)
                 # get indirection of base page record
                 indirection_base = self.get_indirection_base(bufferpool_object_base, j)
-                if (indirection_base > lineage):
+                if indirection_base > lineage and indirection_base != self.config.max_int:
                     lineage = indirection_base
-            # Set lineage for all objects in bufferpool object
-            for k in range(0, len(bufferpool_object_base.pages)):
-                bufferpool_object_base[i].lineage = lineage
             bufferpool_object_base.is_clean = False
+        # Set lineage for all objects in bufferpool object
+        for i in range(0, len(bufferpool_object_base_list)):
+            bufferpool_object_base = bufferpool_object_base_list[i]
+            bufferpool_object_pages = bufferpool_object_base.pages
+            for j in range(0, len(bufferpool_object_pages)):
+                bufferpool_object_pages[j].lineage = lineage
 
     # Writes new external cols to the bufferpool object.
     def set_external_columns(self, bufferpool_object, offset, external_cols):
