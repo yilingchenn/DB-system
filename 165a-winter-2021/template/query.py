@@ -67,26 +67,31 @@ class Query:
         # Indirection is set to the maximum value of an 8 byte
         #   integer --> MAX_INT because there are no updates
         indirection = self.table.config.max_int
-        current_base_page = self.table.get_current_page_id()
-        bufferpool_slot = self.table.return_bufferpool_slot(current_base_page, self.table.name)
+        current_base_page_internal = self.table.get_current_page_id_internal()
+        current_base_page_external = self.table.get_current_page_id_external()
+        bufferpool_slot_internal = self.table.return_bufferpool_slot(current_base_page_internal, self.table.name, False)
+        bufferpool_slot_external = self.table.return_bufferpool_slot(current_base_page_external, self.table.name, True)
         # Check to update base pages
-        updated_bufferpool_slot = self.table.checker(bufferpool_slot)
+        updated_bufferpool_slot_internal = self.table.checker(bufferpool_slot_internal, bufferpool_slot_external)[0]
+        updated_bufferpool_slot_external = self.table.checker(bufferpool_slot_internal, bufferpool_slot_external)[1]
         # Map RID to a tuple (page_range, offset)
-        offset = updated_bufferpool_slot.pages[0].num_records
-        base_pageId = self.table.base_pages[len(self.table.base_pages)-1]
-        self.table.page_directory[rid] = (base_pageId, offset)
+        offset = updated_bufferpool_slot_internal.pages[0].num_records
+        base_page_id_internal = self.table.get_current_page_id_internal()
+        base_page_id_external = self.table.get_current_page_id_external()
+        self.table.page_directory[rid] = (base_page_id_internal, base_page_id_external, offset)
         # Map key to the RID in the index directory
         self.table.index_directory[columns[0]] = rid
         # Put the columns of the record into the visible columns
         for i in range(0, self.table.total_columns - 4):
-            updated_bufferpool_slot.pages[i].write(columns[i])
+            updated_bufferpool_slot_external.pages[i].write(columns[i])
         # Put the information into the internal records
-        updated_bufferpool_slot.pages[self.table.total_columns - 4].write(rid)
-        updated_bufferpool_slot.pages[self.table.total_columns - 3].write(timestamp)
-        updated_bufferpool_slot.pages[self.table.total_columns - 2].write(schema_encoding)
-        updated_bufferpool_slot.pages[self.table.total_columns - 1].write(indirection)
+        updated_bufferpool_slot_internal.pages[0].write(rid)
+        updated_bufferpool_slot_internal.pages[1].write(timestamp)
+        updated_bufferpool_slot_internal.pages[2].write(schema_encoding)
+        updated_bufferpool_slot_internal.pages[3].write(indirection)
         # Mark the bufferpool slot as dirty, because its been updated.
-        updated_bufferpool_slot.is_clean = False
+        updated_bufferpool_slot_internal.is_clean = False
+        updated_bufferpool_slot_external.is_clean = False
         return True
 
     """
@@ -123,11 +128,11 @@ class Query:
             return False
         # everything from base page and page_directory
         base_record_rid = self.table.index_directory[key]
-        base_pageId = self.table.page_directory[base_record_rid][0] # column
-        base_page_offset = self.table.page_directory[base_record_rid][1] # offset
-        most_updated = self.table.get_most_updated(key)
+        base_page_id_internal = self.table.page_directory[base_record_rid][0] # column
+        base_page_id_external = self.table.page_directory[base_record_rid][1]
+        base_page_offset = self.table.page_directory[base_record_rid][2] # offset
         # Get tail page stuff
-        tail_pageId = self.table.get_tail_page(base_pageId)
+        tail_page_id = self.table.get_tail_page(base_page_id_internal)
         bufferpool_slot_tail = self.table.return_bufferpool_slot(tail_pageId, self.table.name)
         most_updated = self.table.get_most_updated(key)
         # Generate values for tail page

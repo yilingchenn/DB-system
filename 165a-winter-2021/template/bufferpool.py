@@ -72,7 +72,7 @@ class Bufferpool:
 
     # Assuming that file with page_id and table_name exists already, we access that base page in the table and read it
     # into a bufferpool slot, and then return that bufferpool slot.
-    def read_file(self, page_id, table_name, total_columns):
+    def read_file(self, page_id, table_name, num_columns):
         # 1.) Read a file with specified pageID, tableName
         path = self.path
         file = str(table_name) + '_' + str(page_id) + '.txt'
@@ -81,7 +81,7 @@ class Bufferpool:
             # 2.) Put information in file into a list of page objects
             # Create list of empty pages --> will fill
             pages = []
-            for i in range(0, total_columns):
+            for i in range(0, num_columns):
                 new_page = Page()
                 pages.append(new_page)
             # The first 8 bytes of every file contain the number of records. Extract the number of records first.
