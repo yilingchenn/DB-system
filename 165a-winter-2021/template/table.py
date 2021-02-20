@@ -300,3 +300,52 @@ class Table:
         element = page.read(offset)
         element_decoded = int.from_bytes(element, byteorder = "big")
         return element_decoded
+
+    def save_table(self):
+        path = self.bufferpool.path
+        file_name = self.name + "_directory.txt"
+        with open(os.path.join(path, file_name), 'wb') as ff:
+            # First value is the length of the page directory which is RID counter
+            rid_counter_bytes = self.rid_counter.to_bytes(8, byteorder="big")
+            ff.write(rid_counter_bytes)
+            # Write page directory keys and values
+            page_directory_keys = self.page_directory.keys()
+            page_directory_keys_bytes = bytearray(page_directory_keys)
+            ff.write(page_directory_keys_bytes)
+            page_directory_values = self.page_directory.values()
+            page_directory_values_bytes = bytearray(page_directory_values)
+            ff.write(page_directory_values_bytes)
+            # Second hard coded value is the length of the index_directory
+            index_directory_length = len(self.index_directory.keys())
+            index_directory_length_bytes = index_directory_length.to_bytes(8, byteorder="big")
+            ff.write(index_directory_length_bytes)
+            # Write index_directory keys and values
+            index_directory_keys = self.index_directory.keys()
+            index_directory_keys_bytes = bytearray(index_directory_keys)
+            ff.write(index_directory_keys_bytes)
+            index_directory_values = self.index_directory.values()
+            index_directory_values_bytes = bytearray(index_directory_values)
+            ff.write(index_directory_values_bytes)
+            # Write the num columns
+            num_columns_bytes = self.num_columns.to_bytes(8, byteorder='big')
+            ff.write(num_columns_bytes)
+            # Write the name
+            name_decoded = self.name.encode()
+            ff.write(name_decoded)
+            # Write the key
+            key_bytes = self.key.to_bytes(8, byteorder="big")
+            ff.write(key_bytes)
+            # Write the length of the base internal/external --> the same
+            base_pages_internal_length = len(self.base_pages_internal)
+            base_pages_internal_length_bytes = base_pages_internal_length.to_bytes(8, byteorder="big")
+            ff.write(base_pages_internal_length_bytes)
+            ff.write(bytearray(self.base_pages_internal))
+            ff.write(bytearray(self.base_pages_external))
+            tail_pages_length = len(self.tail_pages)
+            tail_pages_length_bytes = tail_pages_length.to_bytes(8, byteorder="big")
+            ff.write(tail_pages_length_bytes)
+            ff.write(bytearray(self.tail_pages))
+            # Write the number of pages and rid counter
+            num_pages_bytes = self.num_pages.to_bytes(8, byteorder="big")
+            ff.write(num_pages_bytes)
+

@@ -9,18 +9,22 @@ class Database():
         self.bufferpool = Bufferpool()
 
     def open(self, path):
+        # Load all tables from files into self.tables
         self.bufferpool.set_path(path)
         if not os.path.exists(path):
             os.makedirs(path)
         # Path = path to folder where all of our files will be
         # Convert all files to list. Return list.
         # Initialize the bufferpool to empty slots. You only open once.
-        pass
 
     def close(self):
         # Put dirty pages back into disk, writing to disk.
         # Have something in bufferpool that manages all of that for simplicity
         self.bufferpool.write_all()
+        # Save all table information into a file.
+        for i in range(0, len(self.tables)):
+            table = self.tables[i]
+            table.save_table()
 
     """
     # Creates a new table
