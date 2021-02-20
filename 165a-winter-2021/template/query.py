@@ -42,11 +42,11 @@ class Query:
         # 2. set base page schema encoding to '0' *n num_columns
         # 3. use the update function to create a new tail with parameter(key, [None]* num_columns)
         rid = self.table.index_directory[key]
-        pageId = self.table.page_directory[rid][0]
-        offset = self.table.page_directory[rid][1]
+        page_id_internal = self.table.page_directory[rid][0]
+        offset = self.table.page_directory[rid][2]
         # overwrite the base page schema_encoding
-        bufferpool_object = self.table.bufferpool.read_file(pageId, self.table.name, self.table.total_columns)
-        self.table.set_schema_encoding_base(bufferpool_object, offset, '0'*self.table.num_columns)
+        bufferpool_object_internal = self.table.return_bufferpool_slot(page_id_internal, self.table.name, False, False)
+        self.table.set_schema_encoding_base(bufferpool_object_internal, offset, '0'*self.table.num_columns)
         # update
         self.update(key, *([None]*self.table.num_columns))
         return True
@@ -69,16 +69,17 @@ class Query:
         indirection = self.table.config.max_int
         current_base_page_internal = self.table.get_current_page_id_internal()
         current_base_page_external = self.table.get_current_page_id_external()
-        bufferpool_slot_internal = self.table.return_bufferpool_slot(current_base_page_internal, self.table.name, False)
-        bufferpool_slot_external = self.table.return_bufferpool_slot(current_base_page_external, self.table.name, True)
+        bufferpool_slot_internal = self.table.return_bufferpool_slot(current_base_page_internal, self.table.name, False, False)
+        bufferpool_slot_external = self.table.return_bufferpool_slot(current_base_page_external, self.table.name, True, False)
         # Check to update base pages
-        updated_bufferpool_slot_internal = self.table.checker(bufferpool_slot_internal, bufferpool_slot_external)[0]
-        updated_bufferpool_slot_external = self.table.checker(bufferpool_slot_internal, bufferpool_slot_external)[1]
+        bufferpool_slots = self.table.checker(bufferpool_slot_internal, bufferpool_slot_external)
+        updated_bufferpool_slot_internal = bufferpool_slots[0]
+        updated_bufferpool_slot_external = bufferpool_slots[1]
         # Map RID to a tuple (page_range, offset)
         offset = updated_bufferpool_slot_internal.pages[0].num_records
         base_page_id_internal = self.table.get_current_page_id_internal()
         base_page_id_external = self.table.get_current_page_id_external()
-        self.table.page_directory[rid] = (base_page_id_internal, base_page_id_external, offset)
+        self.table.page_directory[rid] = [base_page_id_internal, base_page_id_external, offset]
         # Map key to the RID in the index directory
         self.table.index_directory[columns[0]] = rid
         # Put the columns of the record into the visible columns
@@ -129,22 +130,21 @@ class Query:
         # everything from base page and page_directory
         base_record_rid = self.table.index_directory[key]
         base_page_id_internal = self.table.page_directory[base_record_rid][0] # column
-        base_page_id_external = self.table.page_directory[base_record_rid][1]
         base_page_offset = self.table.page_directory[base_record_rid][2] # offset
         # Get tail page stuff
         tail_page_id = self.table.get_tail_page(base_page_id_internal)
-        bufferpool_slot_tail = self.table.return_bufferpool_slot(tail_pageId, self.table.name)
+        bufferpool_slot_tail = self.table.return_bufferpool_slot(tail_page_id, self.table.name, False, True)
         most_updated = self.table.get_most_updated(key)
         # Generate values for tail page
         tail_page_rid = self.table.gen_rid()
         timestamp = int(round(time() * 1000))
         # Get base values afterwards
-        bufferpool_slot_base = self.table.return_bufferpool_slot(base_pageId, self.table.name)
-        base_page_indirection = self.table.get_indirection_base(bufferpool_slot_base, base_page_offset)
-        base_page_schema_encoding = self.table.get_schema_encoding_base(bufferpool_slot_base, base_page_offset)
+        bufferpool_slot_base_internal = self.table.return_bufferpool_slot(base_page_id_internal, self.table.name, False, False)
+        base_page_indirection = self.table.get_indirection_base(bufferpool_slot_base_internal, base_page_offset)
+        base_page_schema_encoding = self.table.get_schema_encoding_base(bufferpool_slot_base_internal, base_page_offset)
         # Add tail record to page_directory
         offset = bufferpool_slot_tail.pages[0].num_records
-        self.table.page_directory[tail_page_rid] = (tail_pageId, offset)
+        self.table.page_directory[tail_page_rid] = (tail_page_id, -1, offset)
         # Find new schema encoding
         new_schema_encoding = ""
         for i in range(0, len(most_updated)):
@@ -181,9 +181,9 @@ class Query:
         bufferpool_slot_tail.pages[self.table.total_columns - 2].write(int_schema_encoding)
         bufferpool_slot_tail.pages[self.table.total_columns - 1].write(tail_page_indirection)
         # Replace the schema encoding and indirection in the base page
-        bufferpool_slot_base.pages[self.table.total_columns - 2].edit(base_page_offset, int_schema_encoding)
-        bufferpool_slot_base.pages[self.table.total_columns - 1].edit(base_page_offset, tail_page_rid)
-        bufferpool_slot_base.is_clean = False
+        bufferpool_slot_base_internal.pages[2].edit(base_page_offset, int_schema_encoding)
+        bufferpool_slot_base_internal.pages[3].edit(base_page_offset, tail_page_rid)
+        bufferpool_slot_base_internal.is_clean = False
         bufferpool_slot_tail.is_clean = False
         return True
 

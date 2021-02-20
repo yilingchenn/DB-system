@@ -31,7 +31,7 @@ class Table:
         # rid_counter keeps track of the current rid to avoid duplicates
         self.rid_counter = 0
         # num_pages keeps track of the pageID we're currently adding to. Initially, this is one.
-        self.num_page = 1
+        self.num_page = 2
         # Put all of the config constants into one variable
         self.config = init()
         # base_pages is the list of pageId's that correspond to base pages.
@@ -43,15 +43,16 @@ class Table:
         # Every table in the database has access to the shared bufferpool object
         self.bufferpool = bufferpool
         # Open first file for first base page.
-        self.create_new_file(1, self.name)
+        self.create_new_file(1, self.name, 4)
+        self.create_new_file(2, self.name, self.num_columns)
 
     # Creates a new file corresponding to the page_id to write/read from
-    def create_new_file(self, page_id, table_name):
+    def create_new_file(self, page_id, table_name, num_cols):
         path = self.bufferpool.path
         # Specify the file name
         file = str(table_name) + '_' + str(page_id) + '.txt'
         pages = []
-        for i in range(0, self.total_columns):
+        for i in range(0, num_cols):
             new_page = Page()
             pages.append(new_page)
         with open(os.path.join(path, file), 'wb') as ff:
@@ -79,17 +80,18 @@ class Table:
     def return_bufferpool_slot(self, page_id, table_name, is_external, is_tail):
         if self.bufferpool.index_of(table_name, page_id) == -1 and is_tail == True:
             bufferpool_slot = self.bufferpool.read_file(page_id, self.name, self.total_columns)
-        elif self.bufferpool.index_of(table_name, page_id) == -1 and is_external == True:
-            # Base page is not in the bufferpool already, need to load it in
-            bufferpool_slot = self.bufferpool.read_file(page_id, self.name, self.num_columns)
-        elif self.bufferpool.index_of(table_name, page_id) == -1 and is_external == False:
-            # Base page is not in the bufferpool already, need to load it in
-            bufferpool_slot = self.bufferpool.read_file(page_id, self.name, 4)
         else:
-            # Base page already in the bufferpool, need to access it and move it to the front
-            slot_index = self.bufferpool.index_of(self.name, page_id)
-            bufferpool_slot = self.bufferpool.slots[slot_index]
-            self.bufferpool.move_to_front(slot_index)
+            if self.bufferpool.index_of(table_name, page_id) == -1 and is_external == True:
+                # Base page is not in the bufferpool already, need to load it in
+                bufferpool_slot = self.bufferpool.read_file(page_id, self.name, self.num_columns)
+            elif self.bufferpool.index_of(table_name, page_id) == -1 and is_external == False:
+                # Base page is not in the bufferpool already, need to load it in
+                bufferpool_slot = self.bufferpool.read_file(page_id, self.name, 4)
+            else:
+                # Base page already in the bufferpool, need to access it and move it to the front
+                slot_index = self.bufferpool.index_of(self.name, page_id)
+                bufferpool_slot = self.bufferpool.slots[slot_index]
+                self.bufferpool.move_to_front(slot_index)
         return bufferpool_slot
 
 
@@ -133,27 +135,27 @@ class Table:
     # Checker takes in the bufferpool slot that corresponds to the current base page.
     # Checker checks if it is full, and if it is, then it allocates another base page, loads that empty base page
     # into the bufferpool, and returns the corresponding bufferpool slot.
-    def checker(self, bufferpool_slot_internal):
+    def checker(self, bufferpool_slot_internal, bufferpool_slot_external):
         # Check the capacity of the current bufferpool slot.
         # If its full, we need to allocate a new base page/tail page, create the files
         # Because the new base page/tail pages are guaranteed to be empty, we can just create empty slots.
-        pages = bufferpool_slot_internal
+        pages = bufferpool_slot_internal.pages
         if not pages[0].has_capacity():
             # Add one to the page_range and allocate files
             self.num_page += 1
             self.base_pages_internal.append(self.num_page)
-            self.create_new_file(self.get_current_page_id_internal(), self.name)
-            bufferpool_slot_internal = self.bufferpool.read_file(self.num_pages, self.name, 4)
+            self.create_new_file(self.get_current_page_id_internal(), self.name, 4)
+            bufferpool_slot_internal = self.bufferpool.read_file(self.num_page, self.name, 4)
             self.num_page += 1
             self.base_pages_external.append(self.num_page)
-            self.create_new_file(self.get_current_page_id_external(), self.name)
-            bufferpool_slot_external = self.bufferpool.read_file(self.num_pages, self.name, self.num_columns)
+            self.create_new_file(self.get_current_page_id_external(), self.name, self.num_columns)
+            bufferpool_slot_external = self.bufferpool.read_file(self.num_page, self.name, self.num_columns)
             # Check to see if we are in a new Page Range, and allocate empty tail page if we are.
             if len(self.base_pages_internal) % self.config.page_range_size == 1:
                 self.num_page += 1
                 self.tail_pages.append(self.num_page)
                 # Create the new file for new tail page
-                self.create_new_file(self.num_page, self.name)
+                self.create_new_file(self.num_page, self.name, self.total_columns)
         return bufferpool_slot_internal, bufferpool_slot_external
 
     # Given the pageId of a base page, return the pageId corresponding to the tail page for that base page.
@@ -168,7 +170,7 @@ class Table:
             # Tail page has not been allocated yet. Need to allocate it, we know we will have space becasue its empty.
             self.num_page += 1
             self.tail_pages[tail_index] = self.num_page
-            self.create_new_file(self.num_page, self.name)
+            self.create_new_file(self.num_page, self.name, self.total_columns)
             return self.num_page
         else:
             tail_page_slot = self.return_bufferpool_slot(tail_page_id, self.name, False, True)
@@ -179,7 +181,7 @@ class Table:
                 self.merge(tail_index)
                 self.num_page += 1
                 self.tail_pages[tail_index] = self.num_page
-                self.create_new_file(self.num_page, self.name)
+                self.create_new_file(self.num_page, self.name, self.total_columns)
                 tail_page_id = self.num_page
             return tail_page_id
 
@@ -188,7 +190,8 @@ class Table:
         start = range_number * self.config.page_range_size
         end = (range_number + 1) * self.config.page_range_size
         for i in range(start, end):
-            base_page_id_array.append(i)
+            if i < len(self.base_pages_internal):
+                base_page_id_array.append(i)
         return base_page_id_array
 
     # TODO: Implement Merge for Milestone 2
@@ -209,9 +212,9 @@ class Table:
         new_bufferpool_object_base_list_external = []
         indexes_list = []
         for i in range(0, len(bufferpool_object_base_list_external)):
-            self.num_pages += 1
-            self.create_new_file(self.num_pages, self.name)
-            new_slot = self.return_bufferpool_slot(self.num_pages, self.name, True, False)
+            self.num_page += 1
+            self.create_new_file(self.num_page, self.name, self.num_columns)
+            new_slot = self.return_bufferpool_slot(self.num_page, self.name, True, False)
             new_bufferpool_object_base_list_external.append(new_slot)
             indexes_list.append(self.num_page)
         for i in range(0, len(bufferpool_object_base_list_internal)):
@@ -240,7 +243,8 @@ class Table:
             bufferpool_object_pages_internal = bufferpool_object_base_list_internal[i].pages
             for j in range(0, len(bufferpool_object_pages_external)):
                 bufferpool_object_pages_external[j].lineage = lineage
-                bufferpool_object_pages_internal[j].lineage = lineage
+            for k in range(0, len(bufferpool_object_pages_internal)):
+                bufferpool_object_pages_internal[k].lineage = lineage
 
     # Writes new external cols to the bufferpool object.
     def write_external_columns(self, bufferpool_object, external_cols):
