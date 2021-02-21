@@ -10,6 +10,7 @@ class Database():
 
     def open(self, path):
         self.bufferpool.set_path(path)
+        self.path = path
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -55,10 +56,11 @@ class Database():
         for i in range(0, len(self.tables)):
             if self.tables[i].name == name:
                 return self.tables[i]
-        file_name = name + "_directory.txt"
-        if os.path.isfile(file_name):
+        file_name_with_path = self.path + "/" + name + "_directory.txt"
+        file_name_without_path = name + "_directory.txt"
+        if os.path.isfile(file_name_with_path):
             # Read information in from the file and reconstruct table and return it
-            return self.reconstruct_table(file_name, name)
+            return self.reconstruct_table(file_name_without_path, name)
         else:
             # No table with that name in files or in self.tables
             return False
@@ -125,7 +127,7 @@ class Database():
             offset += 1
             # Read base_page_internal
             base_page_internal = []
-            for i in range(0, len(base_page_length)):
+            for i in range(0, base_page_length):
                 start = offset * 8
                 end = (offset + 1) * 8
                 base_page_internal_value = int.from_bytes(f[start:end], byteorder='big')
@@ -133,7 +135,7 @@ class Database():
                 offset += 1
             # Read base external
             base_page_external = []
-            for i in range(0, len(base_page_length)):
+            for i in range(0, base_page_length):
                 start = offset * 8
                 end = (offset + 1) * 8
                 base_page_external_value = int.from_bytes(f[start:end], byteorder='big')
@@ -143,7 +145,7 @@ class Database():
             tail_page_length = int.from_bytes(f[offset * 8:(offset + 1) * 8], byteorder='big')
             offset += 1
             tail_page = []
-            for i in range(0, len(tail_page_length)):
+            for i in range(0, tail_page_length):
                 start = offset * 8
                 end = (offset + 1) * 8
                 tail_page_value = int.from_bytes(f[start:end], byteorder='big')
@@ -160,4 +162,5 @@ class Database():
         new_table.base_pages_internal = base_page_internal
         new_table.base_pages_external = base_page_external
         new_table.tail_pages = tail_page
+        return new_table
 

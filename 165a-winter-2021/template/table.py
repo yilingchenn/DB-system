@@ -113,6 +113,12 @@ class Table:
             tail_page_id = self.page_directory[indirection][0]
             tail_offset = self.page_directory[indirection][2]
             bufferpool_slot_tail = self.return_bufferpool_slot(tail_page_id, self.name, False, True)
+            tail_record = []
+            for i in range(0, len(bufferpool_slot_tail.pages)-4):
+                tail_record.append(self.get_record_element(bufferpool_slot_tail, tail_offset, i))
+            deleted = [self.config.max_int] * self.num_columns
+            if tail_record == deleted:
+                return deleted
         # Read the values to get the most updated values
         record_as_list = []
         num_col = self.num_columns
@@ -380,6 +386,6 @@ class Table:
             tail_pages_to_bytes = self.list_values_to_bytes(self.tail_pages)
             ff.write(tail_pages_to_bytes)
             # Write the number of pages
-            num_pages_bytes = self.num_pages.to_bytes(8, byteorder="big")
+            num_pages_bytes = self.num_page.to_bytes(8, byteorder="big")
             ff.write(num_pages_bytes)
 
