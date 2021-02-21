@@ -19,7 +19,7 @@ class Query:
     def key_exists(self, key):
         if key in self.table.index_directory.keys():
             # if self.select(key, 0, [1]*self.table.num_columns)[0].columns == [MAX_INT]*self.table.num_columns:
-            temp = self.select(key, 0, [1]*self.table.num_columns)
+            temp = self.select(key, 0, [1]*self.table.num_columns)[0].columns
             if temp == [self.table.config.max_int]*self.table.num_columns:
                 return False
             else:
@@ -39,7 +39,7 @@ class Query:
         if not self.key_exists(key):
             return False
         # 1. get the base page RID using key
-        # 2. set base page schema encoding to '0' *n num_columns
+        # 2. set base page schema encoding to '0' * num_columns
         # 3. use the update function to create a new tail with parameter(key, [None]* num_columns)
         rid = self.table.index_directory[key]
         page_id_internal = self.table.page_directory[rid][0]
@@ -106,13 +106,22 @@ class Query:
     def select(self, key, column, query_columns):
         # Turn select into a helper function in table class and call it here.
         # Need to get the columns from the base page and the columns from the tail page and the schema_encoding.
-        columns = self.table.get_most_updated(key)
-        for i in range(0, len(query_columns)):
-            columns[i] = columns[i] * query_columns[i]
-        rid = self.table.index_directory[key]
-        record = Record(rid, key, columns)
-        return [record]
-
+        # use locate and locate_range
+        if column == 0:
+            rid = self.table.index_directory[key]
+            rid_list = [rid]
+        else:
+            rid_list = self.table.index.locate(column, key) # list of rid's where value occurs at column
+        record_list = []
+        for k in range(0, len(rid_list)):
+            rid = rid_list[k]
+            columns = self.table.get_most_updated(rid)
+            primary_key = columns[0]
+            for j in range(0, len(query_columns)):
+                columns[j] = columns[j] * query_columns[j]
+            record = Record(rid, primary_key, columns)
+            record_list.append(record)
+        return record_list
 
     """
     # Update a record with specified key and columns
@@ -134,7 +143,7 @@ class Query:
         # Get tail page stuff
         tail_page_id = self.table.get_tail_page(base_page_id_internal)
         bufferpool_slot_tail = self.table.return_bufferpool_slot(tail_page_id, self.table.name, False, True)
-        most_updated = self.table.get_most_updated(key)
+        most_updated = self.table.get_most_updated(base_record_rid)
         # Generate values for tail page
         tail_page_rid = self.table.gen_rid()
         timestamp = int(round(time() * 1000))
@@ -144,7 +153,7 @@ class Query:
         base_page_schema_encoding = self.table.get_schema_encoding_base(bufferpool_slot_base_internal, base_page_offset)
         # Add tail record to page_directory
         offset = bufferpool_slot_tail.pages[0].num_records
-        self.table.page_directory[tail_page_rid] = (tail_page_id, -1, offset)
+        self.table.page_directory[tail_page_rid] = (tail_page_id, self.table.config.max_int, offset)
         # Find new schema encoding
         new_schema_encoding = ""
         for i in range(0, len(most_updated)):

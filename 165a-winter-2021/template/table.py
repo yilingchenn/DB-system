@@ -27,7 +27,7 @@ class Table:
         self.num_columns = num_columns
         self.page_directory = {} #{RID: (pageId, offset)}
         self.index_directory = {} # {Key: RID}
-        self.index = Index(self) # Not sure what to do with this right now
+        self.index = Index(self) # index object
         # rid_counter keeps track of the current rid to avoid duplicates
         self.rid_counter = 0
         # num_pages keeps track of the pageID we're currently adding to. Initially, this is one.
@@ -42,9 +42,6 @@ class Table:
         self.tail_pages = [0]
         # Every table in the database has access to the shared bufferpool object
         self.bufferpool = bufferpool
-        # Open first file for first base page.
-        self.create_new_file(1, self.name, 4)
-        self.create_new_file(2, self.name, self.num_columns)
 
     # Creates a new file corresponding to the page_id to write/read from
     def create_new_file(self, page_id, table_name, num_cols):
@@ -97,9 +94,9 @@ class Table:
 
     # From the key of the base page, return an array that represents all the contents of the record that has the key
     # Returns a list that represents the
-    def get_most_updated(self, key):
+    def get_most_updated(self, rid):
         # Get all information from the base record
-        rid = self.index_directory[key]
+        # rid = self.index_directory[key]
         base_page_id_internal = self.page_directory[rid][0]
         base_page_id_external = self.page_directory[rid][1]
         base_offset = self.page_directory[rid][2]
@@ -116,6 +113,12 @@ class Table:
             tail_page_id = self.page_directory[indirection][0]
             tail_offset = self.page_directory[indirection][2]
             bufferpool_slot_tail = self.return_bufferpool_slot(tail_page_id, self.name, False, True)
+            tail_record = []
+            for i in range(0, len(bufferpool_slot_tail.pages)-4):
+                tail_record.append(self.get_record_element(bufferpool_slot_tail, tail_offset, i))
+            deleted = [self.config.max_int] * self.num_columns
+            if tail_record == deleted:
+                return deleted
         # Read the values to get the most updated values
         record_as_list = []
         num_col = self.num_columns
@@ -226,7 +229,8 @@ class Table:
             for j in range(0, num_records):
                 # j is the offset.
                 key = self.get_record_element(bufferpool_object_base_external, j, 0)
-                most_updated_external_cols = self.get_most_updated(key)
+                rid = self.index_directory[key]
+                most_updated_external_cols = self.get_most_updated(rid)
                 self.write_external_columns(new_bufferpool_object_base_external, most_updated_external_cols)
                 # get indirection of base page record
                 indirection_base = self.get_indirection_base(bufferpool_object_base_internal, j)
@@ -300,3 +304,88 @@ class Table:
         element = page.read(offset)
         element_decoded = int.from_bytes(element, byteorder = "big")
         return element_decoded
+
+    # list of lists is converted to a single list
+    def flatten_page_directory_list(self, page_directory_values):
+        new_list = []
+        for i in range(0, len(page_directory_values)):
+            list_element = page_directory_values[i]
+            for j in range(0, len(list_element)):
+                new_list.append(list_element[j])
+        return new_list
+
+    # Takes in any kind of list and returns in bytes.
+    def list_values_to_bytes(self, list_values):
+        byte_array_length = len(list_values) * 8
+        byte_array = bytearray(byte_array_length)
+        for i in range(0, len(list_values)):
+            element_bytes = list_values[i].to_bytes(8, byteorder="big")
+            start = i*8
+            end = (i+1)*8
+            byte_array[start:end] = element_bytes
+        return byte_array
+
+    def save_table(self):
+        path = self.bufferpool.path
+        file_name = self.name + "_directory.txt"
+        with open(os.path.join(path, file_name), 'wb') as ff:
+            """
+            Writes the following in order to save and reopen database 
+            1.) RID Counter, also the length of the page directory
+            2.) Page directory keys 
+            3.) Page directory values [1, 2, 3, ...] where 1, 2, 3 belong to page_directory keys [0]
+            4.) Length of the index directory
+            5.) Index directory keys
+            6.) Index directory values
+            7.) Number of columns
+            8.) Name 
+            9.) Key
+            10.) Length of base_page_internal and base_page_external (the same)
+            11.) Number of pages. 
+            """
+            # First value is the length of the page directory which is RID counter
+            rid_counter_bytes = self.rid_counter.to_bytes(8, byteorder="big")
+            ff.write(rid_counter_bytes)
+            # Write page directory keys and values
+            page_directory_keys = list(self.page_directory.keys())
+            page_directory_keys_bytes = self.list_values_to_bytes(page_directory_keys)
+            ff.write(page_directory_keys_bytes)
+            page_directory_values = list(self.page_directory.values())
+            page_directory_values_flattened = self.flatten_page_directory_list(page_directory_values)
+            page_directory_values_flattened_bytes = self.list_values_to_bytes(page_directory_values_flattened)
+            ff.write(page_directory_values_flattened_bytes)
+            # Second hard coded value is the length of the index_directory
+            index_directory_length = len(self.index_directory.keys())
+            index_directory_length_bytes = index_directory_length.to_bytes(8, byteorder="big")
+            ff.write(index_directory_length_bytes)
+            # Write index_directory keys and values
+            index_directory_keys = list(self.index_directory.keys())
+            index_directory_keys_bytes = self.list_values_to_bytes(index_directory_keys)
+            ff.write(index_directory_keys_bytes)
+            index_directory_values = list(self.index_directory.values())
+            index_directory_values_bytes = self.list_values_to_bytes(index_directory_values)
+            ff.write(index_directory_values_bytes)
+            # Write the num columns
+            num_columns_bytes = self.num_columns.to_bytes(8, byteorder='big')
+            ff.write(num_columns_bytes)
+            # Write the key
+            key_bytes = self.key.to_bytes(8, byteorder="big")
+            ff.write(key_bytes)
+            # Write the length of the base internal/external --> the same
+            base_pages_internal_length = len(self.base_pages_internal)
+            base_pages_internal_length_bytes = base_pages_internal_length.to_bytes(8, byteorder="big")
+            ff.write(base_pages_internal_length_bytes)
+            base_pages_internal_to_bytes = self.list_values_to_bytes(self.base_pages_internal)
+            ff.write(base_pages_internal_to_bytes)
+            base_pages_external_to_bytes = self.list_values_to_bytes(self.base_pages_external)
+            ff.write(base_pages_external_to_bytes)
+            # Write the length of the tail page and the tail page array
+            tail_pages_length = len(self.tail_pages)
+            tail_pages_length_bytes = tail_pages_length.to_bytes(8, byteorder="big")
+            ff.write(tail_pages_length_bytes)
+            tail_pages_to_bytes = self.list_values_to_bytes(self.tail_pages)
+            ff.write(tail_pages_to_bytes)
+            # Write the number of pages
+            num_pages_bytes = self.num_page.to_bytes(8, byteorder="big")
+            ff.write(num_pages_bytes)
+
