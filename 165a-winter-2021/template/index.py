@@ -9,10 +9,24 @@ class Index:
         self.indices = [None] * table.num_columns
         self.table = table
 
+    # Returns if the key exists in the dictionary
+    def key_exists(self, key):
+        if key in self.table.index_directory.keys():
+            # if self.select(key, 0, [1]*self.table.num_columns)[0].columns == [MAX_INT]*self.table.num_columns:
+            rid = self.table.index_directory[key]
+            temp = self.table.get_most_updated(rid)
+            if temp == [self.table.config.max_int] * self.table.num_columns:
+                return False
+            else:
+                return True
+        else:
+            return False
+
     """
     # returns the location of all records with the given value on column "column"
     """
     def locate(self, column, value):
+        self.create_index(column)
         dict = self.indices[column]
         rid = dict[value]
         # Rid is a list of rid's where value occurs
@@ -34,15 +48,17 @@ class Index:
     def create_index(self, column_number):
         new_index = {}
         # Loop through all the keys
-        keys = self.table.index_directory.keys()
+        keys = list(self.table.index_directory.keys())
         for i in range(0, len(keys)):
-            most_updated = self.table.get_most_updated(keys[i])
-            value = most_updated[column_number]
-            rid = self.table.index_directory[keys[i]]
-            if value in new_index:
-                new_index[value].append(rid)
-            else:
-                new_index[value] = [rid]
+            if self.key_exists(keys[i]):
+                rid = self.table.index_directory[keys[i]]
+                most_updated = self.table.get_most_updated(rid)
+                value = most_updated[column_number]
+                rid = self.table.index_directory[keys[i]]
+                if value in new_index:
+                    new_index[value].append(rid)
+                else:
+                    new_index[value] = [rid]
         # At the end, put it in the list if indices
         self.indices[column_number] = new_index
 
