@@ -101,7 +101,7 @@ class Bufferpool:
         # 3) Create slot object with page information
         new_slot = Slot(table_name, page_id, pages)
         # 4.) Put slot object into bufferpool, evicting pages that haven't been used the longest.
-        if len(self.slots) == 16:
+        if len(self.slots) == self.config.bufferpool_size:
             self.evict_least_used()
         self.slots.insert(0, new_slot)
         # 5.) Return slot object.
