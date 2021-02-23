@@ -1,3 +1,4 @@
+from template.config import init
 """
 A data strucutre holding indices for various columns of a table. Key column should be indexd by default, other columns can be indexed through this object. Indices are usually B-Trees, but other data structures can be used as well.
 """
@@ -8,6 +9,7 @@ class Index:
         # One index for each table. All our empty initially.
         self.indices = [None] * table.num_columns
         self.table = table
+        self.config = init()
 
     # Returns if the key exists in the dictionary
     def key_exists(self, key):
@@ -71,8 +73,9 @@ class Index:
         self.indices[column_number] = None
 
     def update_index(self, rid, new, old, column):
-        dict = self.indices[column]
-        rid_list = dict[old]
+        index_dict = self.indices[column]
+        rid_list = index_dict[old]
         update_index = rid_list.index(rid)
-        dict[old].pop(update_index)
-        dict[new].append(rid)
+        index_dict[old].pop(update_index)
+        if new != self.config.max_int:
+            index_dict[new].append(rid)
