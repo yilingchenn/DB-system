@@ -183,6 +183,10 @@ class Query:
                 bufferpool_slot_tail.pages[i].write(col[i])
             else:
                 bufferpool_slot_tail.pages[i].write(col[i])
+                index_column = i
+        # only update index class if that particular index has been created
+        if self.table.index.indices[index_column] != None:
+            self.table.index.update_index(base_record_rid, key, most_updated[index_column], index_column)
         # Write internal columns into tail page
         int_schema_encoding = int(new_schema_encoding)
         bufferpool_slot_tail.pages[self.table.total_columns - 4].write(tail_page_rid)

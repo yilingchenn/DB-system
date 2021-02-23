@@ -26,7 +26,9 @@ class Index:
     # returns the location of all records with the given value on column "column"
     """
     def locate(self, column, value):
-        self.create_index(column)
+        if self.indices[column] == None:
+            self.create_index(column)
+        # it will be the most updated since we update index in there
         dict = self.indices[column]
         rid = dict[value]
         # Rid is a list of rid's where value occurs
@@ -67,3 +69,10 @@ class Index:
     """
     def drop_index(self, column_number):
         self.indices[column_number] = None
+
+    def update_index(self, rid, new, old, column):
+        dict = self.indices[column]
+        rid_list = dict[old]
+        update_index = rid_list.index(rid)
+        dict[old].pop(update_index)
+        dict[new].append(rid)
