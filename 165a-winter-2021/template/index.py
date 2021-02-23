@@ -28,9 +28,8 @@ class Index:
     def locate(self, column, value):
         if self.indices[column] == None:
             self.create_index(column)
-        else:
-            # it will be the most updated since we update index in there
-            dict = self.indices[column]
+        # it will be the most updated since we update index in there
+        dict = self.indices[column]
         rid = dict[value]
         # Rid is a list of rid's where value occurs
         return rid
