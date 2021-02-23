@@ -75,4 +75,5 @@ class Index:
         rid_list = dict[old]
         update_index = rid_list.index(rid)
         dict[old].pop(update_index)
-        dict[new].append(rid)
+        if new != None:
+            dict[new].append(rid)
