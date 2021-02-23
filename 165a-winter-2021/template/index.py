@@ -75,6 +75,7 @@ class Index:
     def update_index(self, rid, new, old, column):
         index_dict = self.indices[column]
         rid_list = index_dict[old]
+        print("rid_list: ", rid_list)
         update_index = rid_list.index(rid)
         index_dict[old].pop(update_index)
         if new != self.config.max_int:

@@ -46,8 +46,11 @@ class Database():
             if self.tables[i].name == name:
                 index = i
         # If the specified table was found, pop it
-        if index > 0:
-            self.tables.pop(index)
+        if index >= 0:
+            table = self.tables.pop(index)
+            # Write back to file
+            table.save_table()
+
 
     """
     # Returns table with the passed name

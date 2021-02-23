@@ -186,7 +186,7 @@ class Query:
             index_column = i
             # only update index class if that particular index has been created
             if self.table.index.indices[index_column] != None:
-                self.table.index.update_index(base_record_rid, key, most_updated[index_column], index_column)
+                self.table.index.update_index(base_record_rid, col[index_column], most_updated[index_column], index_column)
 
         # Write internal columns into tail page
         int_schema_encoding = int(new_schema_encoding)
