@@ -47,8 +47,12 @@ class Query:
         # overwrite the base page schema_encoding
         bufferpool_object_internal = self.table.return_bufferpool_slot(page_id_internal, self.table.name, False, False)
         self.table.set_schema_encoding_base(bufferpool_object_internal, offset, '0'*self.table.num_columns)
+        most_updated = self.table.get_most_updated(rid)
         # update
         self.update(key, *([None]*self.table.num_columns))
+        for i in range(1, self.table.num_columns):
+            if self.table.index.indices[i] != None:
+                self.table.index.update_index(rid, None, most_updated[i], i)
         return True
 
     """
@@ -184,9 +188,10 @@ class Query:
             else:
                 bufferpool_slot_tail.pages[i].write(col[i])
                 index_column = i
-        # only update index class if that particular index has been created
-        if self.table.index.indices[index_column] != None:
-            self.table.index.update_index(base_record_rid, col[index_column], most_updated[index_column], index_column)
+                # only update index class if that particular index has been created
+                if self.table.index.indices[index_column] != None:
+                    self.table.index.update_index(base_record_rid, col[index_column], most_updated[index_column],
+                                                  index_column)
         # Write internal columns into tail page
         int_schema_encoding = int(new_schema_encoding)
         bufferpool_slot_tail.pages[self.table.total_columns - 4].write(tail_page_rid)
