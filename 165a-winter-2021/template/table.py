@@ -34,8 +34,8 @@ class Table:
         self.num_page = 2
         # Put all of the config constants into one variable
         self.config = init()
-        # base_pages is the list of pageId's that correspond to base pages.
-        # len(base_pages) is the number of base pages, while the last is always the one inserting to.
+        # base_pages_internal is a list of page Id's that belong to the internal pages of a base record
+        # base_page_external is a list of page Id's that belong to the external pages of a base record
         self.base_pages_internal = [1]
         self.base_pages_external = [2]
         # tail_pages is a list of pageId's that belong to tail pages.
@@ -73,19 +73,22 @@ class Table:
     def get_current_page_id_external(self):
         return self.base_pages_external[len(self.base_pages_external)-1]
 
-    # Given a page ID and the name of the table, return the slot for the bufferpool.
+    # Given a page ID, the name of the table, and whether the page is base/tail and internal/external,
+    # return the bufferpool slot with the data in the list of pages. This function also automatically loads it
+    # into the bufferpool.
     def return_bufferpool_slot(self, page_id, table_name, is_external, is_tail):
         if self.bufferpool.index_of(table_name, page_id) == -1 and is_tail == True:
+            # Read a tail page that isn't already in the bufferpool
             bufferpool_slot = self.bufferpool.read_file(page_id, self.name, self.total_columns)
         else:
             if self.bufferpool.index_of(table_name, page_id) == -1 and is_external == True:
-                # Base page is not in the bufferpool already, need to load it in
+                # Read a base page external that isn't already in the bufferpool
                 bufferpool_slot = self.bufferpool.read_file(page_id, self.name, self.num_columns)
             elif self.bufferpool.index_of(table_name, page_id) == -1 and is_external == False:
-                # Base page is not in the bufferpool already, need to load it in
+                # Read a base page internal that isn't already in the bufferpool
                 bufferpool_slot = self.bufferpool.read_file(page_id, self.name, 4)
             else:
-                # Base page already in the bufferpool, need to access it and move it to the front
+                # Page already in the bufferpool, so need to move it to the front and return it
                 slot_index = self.bufferpool.index_of(self.name, page_id)
                 bufferpool_slot = self.bufferpool.slots[slot_index]
                 self.bufferpool.move_to_front(slot_index)
@@ -116,6 +119,7 @@ class Table:
             tail_record = []
             for i in range(0, len(bufferpool_slot_tail.pages)-4):
                 tail_record.append(self.get_record_element(bufferpool_slot_tail, tail_offset, i))
+            # If the "most updated" points to all None, then it means it has been deleted
             deleted = [self.config.max_int] * self.num_columns
             if tail_record == deleted:
                 return deleted
@@ -135,7 +139,7 @@ class Table:
             record_as_list.append(element)
         return record_as_list
 
-    # Checker takes in the bufferpool slot that corresponds to the current base page.
+    # Checker takes in the bufferpool slots that corresponds to the current base page.
     # Checker checks if it is full, and if it is, then it allocates another base page, loads that empty base page
     # into the bufferpool, and returns the corresponding bufferpool slot.
     def checker(self, bufferpool_slot_internal, bufferpool_slot_external):
@@ -144,7 +148,7 @@ class Table:
         # Because the new base page/tail pages are guaranteed to be empty, we can just create empty slots.
         pages = bufferpool_slot_internal.pages
         if not pages[0].has_capacity():
-            # Add one to the page_range and allocate files
+            # Add one to the page_range and allocate files for the new internal and external pages.
             self.num_page += 1
             self.base_pages_internal.append(self.num_page)
             self.create_new_file(self.get_current_page_id_internal(), self.name, 4)
@@ -157,7 +161,6 @@ class Table:
             if len(self.base_pages_internal) % self.config.page_range_size == 1:
                 self.num_page += 1
                 self.tail_pages.append(self.num_page)
-                # Create the new file for new tail page
                 self.create_new_file(self.num_page, self.name, self.total_columns)
         return bufferpool_slot_internal, bufferpool_slot_external
 
@@ -180,7 +183,6 @@ class Table:
             tail_page_slot_pages = tail_page_slot.pages
             if not tail_page_slot_pages[0].has_capacity():
                 # Current bufferpool doesn't have capacity, so need to merge.
-                # TODO: Call merge function here! We have the tail pages in bufferpool already.
                 self.merge(tail_index)
                 self.num_page += 1
                 self.tail_pages[tail_index] = self.num_page
@@ -197,10 +199,10 @@ class Table:
                 base_page_id_array.append(i)
         return base_page_id_array
 
-    # TODO: Implement Merge for Milestone 2
     # Merge occurs fully in the background
     def merge(self, range_number):
-        # Using the range number, get all of the base pages associated with that page range and put them in bufferpool
+        # Using the range number, get all of indexes of the id's of the base internal/external pages that belong to the
+        # the range.
         base_page_id_list = self.range_number_to_base_id(range_number)
         bufferpool_object_base_list_internal = []
         bufferpool_object_base_list_external = []
@@ -228,15 +230,15 @@ class Table:
             new_bufferpool_object_base_external = new_bufferpool_object_base_list_external[i]
             for j in range(0, num_records):
                 # j is the offset.
-                key = self.get_record_element(bufferpool_object_base_external, j, 0)
-                rid = self.index_directory[key]
+                rid = self.get_record_element(bufferpool_object_base_internal, j, 0)
+                # rid = self.index_directory[key]
                 most_updated_external_cols = self.get_most_updated(rid)
                 self.write_external_columns(new_bufferpool_object_base_external, most_updated_external_cols)
                 # get indirection of base page record
                 indirection_base = self.get_indirection_base(bufferpool_object_base_internal, j)
                 if indirection_base > lineage and indirection_base != self.config.max_int:
                     lineage = indirection_base
-                rid = self.index_directory[key]
+                # rid = self.index_directory[key]
                 self.page_directory[rid][1] = indexes_list[i]
             self.base_pages_external[base_page_id_list[i]] = indexes_list[i]
             new_bufferpool_object_base_external.is_clean = False

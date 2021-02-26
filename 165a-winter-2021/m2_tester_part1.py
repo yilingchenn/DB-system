@@ -1,6 +1,7 @@
 from template.db import Database
 from template.query import Query
 from template.config import init
+from template.index import Index
 
 from random import choice, randint, sample, seed
 init()
@@ -9,6 +10,7 @@ db = Database()
 db.open('./ECS165')
 
 grades_table = db.create_table('Grades', 5, 0)
+index = Index(grades_table)
 query = Query(grades_table)
 
 # repopulate with random data
@@ -33,6 +35,9 @@ for key in keys:
     #     print('select on', key, ':', record)
 print("Select finished")
 
+for i in range(1,5):
+    index.create_index(i)
+
 for _ in range(10):
     for key in keys:
         updated_columns = [None, None, None, None, None]
@@ -53,6 +58,18 @@ for _ in range(10):
             #     print('update on', original, 'and', updated_columns, ':', record)
             updated_columns[i] = None
 print("Update finished")
+
+for i in range(1,5):
+    for key in keys:
+        their_value = records[key][i]
+        our_value = query.select(their_value, i, [1,1,1,1,1])
+        is_found = False
+        for record in our_value:
+            if key == record.columns[0]:
+                is_found = True
+        if is_found == False:
+            print("index error")
+print("Index selected complete")
 
 for i in range(0, 100):
     r = sorted(sample(range(0, len(keys)), 2))

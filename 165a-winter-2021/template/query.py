@@ -47,8 +47,12 @@ class Query:
         # overwrite the base page schema_encoding
         bufferpool_object_internal = self.table.return_bufferpool_slot(page_id_internal, self.table.name, False, False)
         self.table.set_schema_encoding_base(bufferpool_object_internal, offset, '0'*self.table.num_columns)
+        most_updated = self.table.get_most_updated(rid)
         # update
         self.update(key, *([None]*self.table.num_columns))
+        for i in range(1, self.table.num_columns):
+            if self.table.index.indices[i] != None:
+                self.table.index.update_index(rid, None, most_updated[i], i)
         return True
 
     """
@@ -104,10 +108,8 @@ class Query:
     # Assume that select will never be called on a key that doesn't exist
     """
     def select(self, key, column, query_columns):
-        # Turn select into a helper function in table class and call it here.
-        # Need to get the columns from the base page and the columns from the tail page and the schema_encoding.
-        # use locate and locate_range
         if column == 0:
+            # If the column is 0, we can use index_directory and page_directory for built in indexing
             rid = self.table.index_directory[key]
             rid_list = [rid]
         else:
@@ -153,7 +155,7 @@ class Query:
         base_page_schema_encoding = self.table.get_schema_encoding_base(bufferpool_slot_base_internal, base_page_offset)
         # Add tail record to page_directory
         offset = bufferpool_slot_tail.pages[0].num_records
-        self.table.page_directory[tail_page_rid] = (tail_page_id, self.table.config.max_int, offset)
+        self.table.page_directory[tail_page_rid] = [tail_page_id, self.table.config.max_int, offset]
         # Find new schema encoding
         new_schema_encoding = ""
         for i in range(0, len(most_updated)):
@@ -183,6 +185,11 @@ class Query:
                 bufferpool_slot_tail.pages[i].write(col[i])
             else:
                 bufferpool_slot_tail.pages[i].write(col[i])
+                index_column = i
+                # only update index class if that particular index has been created
+                if self.table.index.indices[index_column] != None:
+                    self.table.index.update_index(base_record_rid, col[index_column], most_updated[index_column],
+                                                  index_column)
         # Write internal columns into tail page
         int_schema_encoding = int(new_schema_encoding)
         bufferpool_slot_tail.pages[self.table.total_columns - 4].write(tail_page_rid)

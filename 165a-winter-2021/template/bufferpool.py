@@ -91,6 +91,7 @@ class Bufferpool:
             offset = 2
             for j in range(0, len(pages)):
                 page = pages[j]
+                page.lineage = lineage
                 for k in range(0, int(self.config.page_size/8)):
                     if k < num_records:
                         start = offset * 8
@@ -101,7 +102,7 @@ class Bufferpool:
         # 3) Create slot object with page information
         new_slot = Slot(table_name, page_id, pages)
         # 4.) Put slot object into bufferpool, evicting pages that haven't been used the longest.
-        if len(self.slots) == 16:
+        if len(self.slots) == self.config.bufferpool_size:
             self.evict_least_used()
         self.slots.insert(0, new_slot)
         # 5.) Return slot object.
