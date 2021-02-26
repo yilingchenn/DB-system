@@ -91,6 +91,7 @@ class Bufferpool:
             offset = 2
             for j in range(0, len(pages)):
                 page = pages[j]
+                page.lineage = lineage
                 for k in range(0, int(self.config.page_size/8)):
                     if k < num_records:
                         start = offset * 8

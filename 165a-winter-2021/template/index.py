@@ -56,7 +56,6 @@ class Index:
                 rid = self.table.index_directory[keys[i]]
                 most_updated = self.table.get_most_updated(rid)
                 value = most_updated[column_number]
-                rid = self.table.index_directory[keys[i]]
                 if value in new_index:
                     new_index[value].append(rid)
                 else:
