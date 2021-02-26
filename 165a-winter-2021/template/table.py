@@ -201,7 +201,8 @@ class Table:
 
     # Merge occurs fully in the background
     def merge(self, range_number):
-        # Using the range number, get all of the base pages associated with that page range and put them in bufferpool
+        # Using the range number, get all of indexes of the id's of the base internal/external pages that belong to the
+        # the range.
         base_page_id_list = self.range_number_to_base_id(range_number)
         bufferpool_object_base_list_internal = []
         bufferpool_object_base_list_external = []
@@ -229,15 +230,15 @@ class Table:
             new_bufferpool_object_base_external = new_bufferpool_object_base_list_external[i]
             for j in range(0, num_records):
                 # j is the offset.
-                key = self.get_record_element(bufferpool_object_base_external, j, 0)
-                rid = self.index_directory[key]
+                rid = self.get_record_element(bufferpool_object_base_internal, j, 0)
+                # rid = self.index_directory[key]
                 most_updated_external_cols = self.get_most_updated(rid)
                 self.write_external_columns(new_bufferpool_object_base_external, most_updated_external_cols)
                 # get indirection of base page record
                 indirection_base = self.get_indirection_base(bufferpool_object_base_internal, j)
                 if indirection_base > lineage and indirection_base != self.config.max_int:
                     lineage = indirection_base
-                rid = self.index_directory[key]
+                # rid = self.index_directory[key]
                 self.page_directory[rid][1] = indexes_list[i]
             self.base_pages_external[base_page_id_list[i]] = indexes_list[i]
             new_bufferpool_object_base_external.is_clean = False
