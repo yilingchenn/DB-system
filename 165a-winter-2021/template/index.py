@@ -1,3 +1,4 @@
+from template.config import init
 """
 A data strucutre holding indices for various columns of a table. Key column should be indexd by default, other columns can be indexed through this object. Indices are usually B-Trees, but other data structures can be used as well.
 """
@@ -8,6 +9,7 @@ class Index:
         # One index for each table. All our empty initially.
         self.indices = [None] * table.num_columns
         self.table = table
+        self.config = init()
 
     # Returns if the key exists in the dictionary
     def key_exists(self, key):
@@ -26,10 +28,11 @@ class Index:
     # returns the location of all records with the given value on column "column"
     """
     def locate(self, column, value):
-        if self.indices[column] == None:
+        if self.indices[column] == None or self.indices[column] == {}:
             self.create_index(column)
         # it will be the most updated since we update index in there
         dict = self.indices[column]
+        print(dict)
         rid = dict[value]
         # Rid is a list of rid's where value occurs
         return rid
@@ -70,9 +73,14 @@ class Index:
         self.indices[column_number] = None
 
     def update_index(self, rid, new, old, column):
-        dict = self.indices[column]
-        rid_list = dict[old]
+        print("Update Index: ")
+        print("rid: ", rid, ", new: ", new, ", old: ", old, ", col: ", column)
+        if self.indices[column] == None or self.indices[column] == {}:
+            self.create_index(column)
+        temp_dict = self.indices[column]
+        print(temp_dict)
+        rid_list = temp_dict[old]
         update_index = rid_list.index(rid)
-        dict[old].pop(update_index)
-        if new != None:
-            dict[new].append(rid)
+        temp_dict[old].pop(update_index)
+        if new != self.config.max_int:
+            temp_dict[new].append(rid)

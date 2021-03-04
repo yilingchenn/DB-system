@@ -62,6 +62,8 @@ class Query:
     """
     def insert(self, *columns):
         # Generate a new RID from table class
+        print("insert")
+        print("record: ", *columns)
         rid = self.table.gen_rid()
         # timestamp for record
         timestamp = int(round(time() * 1000))
@@ -108,6 +110,10 @@ class Query:
     # Assume that select will never be called on a key that doesn't exist
     """
     def select(self, key, column, query_columns):
+        print("select")
+        print("key: ", key)
+        print("col: ", column)
+        print("query_cols: ", query_columns)
         if column == 0:
             # If the column is 0, we can use index_directory and page_directory for built in indexing
             rid = self.table.index_directory[key]
@@ -123,6 +129,7 @@ class Query:
                 columns[j] = columns[j] * query_columns[j]
             record = Record(rid, primary_key, columns)
             record_list.append(record)
+        print("end select")
         return record_list
 
     """
@@ -138,8 +145,12 @@ class Query:
         # Check if the key even exists in the database
         if not self.key_exists(key):
             return False
+        print("update")
+        print("key: ", key)
+        print("record changes: ", *columns)
         # everything from base page and page_directory
         base_record_rid = self.table.index_directory[key]
+        print(base_record_rid)
         base_page_id_internal = self.table.page_directory[base_record_rid][0] # column
         base_page_offset = self.table.page_directory[base_record_rid][2] # offset
         # Get tail page stuff
@@ -188,6 +199,7 @@ class Query:
                 index_column = i
                 # only update index class if that particular index has been created
                 if self.table.index.indices[index_column] != None:
+                    print(base_record_rid)
                     self.table.index.update_index(base_record_rid, col[index_column], most_updated[index_column],
                                                   index_column)
         # Write internal columns into tail page

@@ -22,8 +22,10 @@ class Transaction:
 
     # If you choose to implement this differently this method must still return True if transaction commits or False on abort
     def run(self):
+        print("running whole trans")
         # somehow need when the transaction to start running
         for query, args in self.queries:
+            print("running one thing")
             # assigning lock to this transactions
             # have a list of keys that are in this transaction --> shared lock
             # upgrade the ones that are gonna be read to exclusive lock
