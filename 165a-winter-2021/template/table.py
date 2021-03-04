@@ -42,6 +42,8 @@ class Table:
         self.tail_pages = [0]
         # Every table in the database has access to the shared bufferpool object
         self.bufferpool = bufferpool
+        # Implementing locks
+        self.record_lock = {}
 
     # Creates a new file corresponding to the page_id to write/read from
     def create_new_file(self, page_id, table_name, num_cols):
@@ -391,3 +393,17 @@ class Table:
             num_pages_bytes = self.num_page.to_bytes(8, byteorder="big")
             ff.write(num_pages_bytes)
 
+    def lock(self, key):
+        # we have the record_lock dictionary: {key: lock = False}
+        # record_lock[key] = True --> locks the data
+        pass
+
+    def lock_checker(self, key):
+        # if key has not lock yet
+        # you can lock it using lock and return False
+        # else return True and the keys has already been taken
+        pass
+
+    def unlock(self, key):
+        # record_lock[key] = False --> after commiting the data
+        pass
