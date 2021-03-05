@@ -43,7 +43,8 @@ class Table:
         # Every table in the database has access to the shared bufferpool object
         self.bufferpool = bufferpool
         # Implementing locks
-        self.record_lock = {}
+        self.shared_locks = {}
+        self.exclusive_locks = {}
 
     # Creates a new file corresponding to the page_id to write/read from
     def create_new_file(self, page_id, table_name, num_cols):
@@ -393,17 +394,35 @@ class Table:
             num_pages_bytes = self.num_page.to_bytes(8, byteorder="big")
             ff.write(num_pages_bytes)
 
-    def lock(self, key):
-        # we have the record_lock dictionary: {key: lock = False}
-        # record_lock[key] = True --> locks the data
-        pass
+    def put_shared_lock(self, key):
+        # Put a shared lock on the key by incrementing the corresponding value in self.shared_locks to
+        # indicate that another transaction is reading that key
+        self.shared_locks[key] += 1
 
-    def lock_checker(self, key):
-        # if key has not lock yet
-        # you can lock it using lock and return False
-        # else return True and the keys has already been taken
-        pass
+    def put_exclusive_lock(self, key):
+        # Put a exclusive lock on the key by setting the corresponding value in self.shared_locks to TRUE
+        self.exclusive_locks[key] = True
 
-    def unlock(self, key):
-        # record_lock[key] = False --> after commiting the data
-        pass
+    def unlock_shared(self, key):
+        # Put a shared lock on the key by decrementing the corresponding value in self.shared_locks to
+        # indicate that one transaction is finished reading that key
+        self.shared_locks[key] -= 1
+
+    def unlock_exclusive(self, key):
+        # Unlock exclusive lock on the key by setting the corresponding value in self.shared_locks to FALSE
+        self.exclusive_locks[key] = False
+
+    def lock_checker_exclusive(self, key):
+        if self.exclusive_locks[key] == True:
+            # Already have an exclusive lock
+            return False
+        else:
+            self.exclusive_locks[key] = True
+            return True
+
+    def lock_checker_shared(self, key):
+        if self.shared_locks[key] > 0:
+            return True
+        else:
+            return False
+
