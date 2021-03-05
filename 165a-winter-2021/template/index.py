@@ -32,7 +32,6 @@ class Index:
             self.create_index(column)
         # it will be the most updated since we update index in there
         dict = self.indices[column]
-        print(dict)
         rid = dict[value]
         # Rid is a list of rid's where value occurs
         return rid
@@ -73,12 +72,9 @@ class Index:
         self.indices[column_number] = None
 
     def update_index(self, rid, new, old, column):
-        print("Update Index: ")
-        print("rid: ", rid, ", new: ", new, ", old: ", old, ", col: ", column)
         if self.indices[column] == None or self.indices[column] == {}:
             self.create_index(column)
         temp_dict = self.indices[column]
-        print(temp_dict)
         rid_list = temp_dict[old]
         update_index = rid_list.index(rid)
         temp_dict[old].pop(update_index)
