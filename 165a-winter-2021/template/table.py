@@ -412,12 +412,36 @@ class Table:
         # Unlock exclusive lock on the key by setting the corresponding value in self.shared_locks to FALSE
         self.exclusive_locks[key] = False
 
-    def lock_checker_exclusive(self, key):
-        if self.exclusive_locks[key] == True:
+    def lock_checker_exclusive(self, key, has_shared):
+        # case 1: self.shared_locks doesnt exist
+                # pass/put exclusive
+        # case 2: self.shared_locks does exist and is 0
+                # pass/ exclusive
+        # case 3: self.shared_locks does exist and is 1
+            # a: if this transaction has the shared_lock
+                # pass/ exlcusive
+            # b: if this transaction does not have the shared_lock
+                # returns False
+        # case 4: self.shared_locks does exist and is greater than 1
+                # return False
+        if key not in self.shared_locks or self.shared_locks[key] == 0:
+            pass
+        elif self.shared_locks[key] == 1 and has_shared:
+            self.shared_locks[key] = 0
+            pass
+        else:
+            return False
+
+        # check for exclusive
+        if key not in self.exclusive_locks:
+            # nobody has it and it has been generated
+            self.put_exclusive_lock(key)
+            return True
+        elif self.exclusive_locks[key] == True:
             # Already have an exclusive lock
             return False
         else:
-            self.exclusive_locks[key] = True
+            self.put_exclusive_lock(key)
             return True
 
     def lock_checker_shared(self, key):
