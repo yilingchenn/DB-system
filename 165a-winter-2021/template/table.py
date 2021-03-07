@@ -42,6 +42,9 @@ class Table:
         self.tail_pages = [0]
         # Every table in the database has access to the shared bufferpool object
         self.bufferpool = bufferpool
+        # Implementing locks
+        self.shared_locks = {}
+        self.exclusive_locks = {}
 
     # Creates a new file corresponding to the page_id to write/read from
     def create_new_file(self, page_id, table_name, num_cols):
@@ -390,4 +393,67 @@ class Table:
             # Write the number of pages
             num_pages_bytes = self.num_page.to_bytes(8, byteorder="big")
             ff.write(num_pages_bytes)
+
+    def put_shared_lock(self, key):
+        # Put a shared lock on the key by incrementing the corresponding value in self.shared_locks to
+        # indicate that another transaction is reading that key
+        if key not in self.shared_locks:
+            self.shared_locks[key] = 1
+        else:
+            self.shared_locks[key] += 1
+
+    def put_exclusive_lock(self, key):
+        # Put a exclusive lock on the key by setting the corresponding value in self.shared_locks to TRUE
+        self.exclusive_locks[key] = True
+
+    def unlock_shared(self, key):
+        # Put a shared lock on the key by decrementing the corresponding value in self.shared_locks to
+        # indicate that one transaction is finished reading that key
+        self.shared_locks[key] -= 1
+
+    def unlock_exclusive(self, key):
+        # Unlock exclusive lock on the key by setting the corresponding value in self.shared_locks to FALSE
+        self.exclusive_locks[key] = False
+
+    def lock_checker_exclusive(self, key, has_shared):
+        # case 1: self.shared_locks doesnt exist
+                # pass/put exclusive
+        # case 2: self.shared_locks does exist and is 0
+                # pass/ exclusive
+        # case 3: self.shared_locks does exist and is 1
+            # a: if this transaction has the shared_lock
+                # pass/ exlcusive
+            # b: if this transaction does not have the shared_lock
+                # returns False
+        # case 4: self.shared_locks does exist and is greater than 1
+                # return False
+        if key not in self.shared_locks or self.shared_locks[key] == 0:
+            pass
+        elif self.shared_locks[key] == 1 and has_shared:
+            self.shared_locks[key] = 0
+            pass
+        else:
+            return False
+
+        # check for exclusive
+        if key not in self.exclusive_locks:
+            # nobody has it and it has been generated
+            self.put_exclusive_lock(key)
+            return True
+        elif self.exclusive_locks[key] == True:
+            # Already have an exclusive lock
+            return False
+        else:
+            self.put_exclusive_lock(key)
+            return True
+
+    def lock_checker_shared(self, key):
+        if key not in self.shared_locks:
+            self.put_shared_lock(key)
+            return True
+        elif self.shared_locks[key] >= 0:
+            self.put_shared_lock(key)
+            return True
+        else:
+            return False
 

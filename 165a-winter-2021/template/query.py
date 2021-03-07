@@ -61,8 +61,12 @@ class Query:
     # Returns False if insert fails for whatever reason
     """
     def insert(self, *columns):
+        col_list = []
+        for col in columns:
+            col_list.append(col)
         # Generate a new RID from table class
         rid = self.table.gen_rid()
+        self.table.index.insert_index(rid, col_list)
         # timestamp for record
         timestamp = int(round(time() * 1000))
         # Schema encoding for internal columns
@@ -187,7 +191,7 @@ class Query:
                 bufferpool_slot_tail.pages[i].write(col[i])
                 index_column = i
                 # only update index class if that particular index has been created
-                if self.table.index.indices[index_column] != None:
+                if self.table.index.indices[index_column] != None and self.table.index.indices[index_column] !={}:
                     self.table.index.update_index(base_record_rid, col[index_column], most_updated[index_column],
                                                   index_column)
         # Write internal columns into tail page
