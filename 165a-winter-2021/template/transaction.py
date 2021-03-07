@@ -8,16 +8,13 @@ class Transaction:
     """
     # Creates a transaction object.
     """
-    def __init__(self):
+    def __init__(self, table):
         self.queries = []
         self.exclusive_locks = {}  # key:key, value:True/False
         self.shared_locks = {}  # key:key, value:True/False
-        self.table = None
+        self.table = table
         pass
 
-    @classmethod
-    def get_table(cls, table):
-        return cls.table
 
     """
     # Adds the given query to this transaction
@@ -27,11 +24,11 @@ class Transaction:
     # t.add_query(q.update, key, *[None, 1, None, 2, None])
     """
     def add_query(self, query, *args):
-        q = query
+        """q = query
         query_object = vars(sys.modules[q.__module__])[q.__qualname__.split('.')[0]]
         query_object2 = self.get_table(query_object)
         print("query object: ", query_object2)
-        self.table = query_object2
+        self.table = query_object2"""
         self.queries.append((query, args))
 
     # If you choose to implement this differently this method must still return True if transaction commits or False on abort
@@ -80,6 +77,8 @@ class Transaction:
                     col = args[1]
                     key_list = []
                     rid_list = self.table.index.locate(col, value)
+                    if rid_list == False:
+                        return self.abort()
                     for rid in rid_list:
                         key_list.append(self.table.get_most_updated(rid)[0])
                     for key in key_list:

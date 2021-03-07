@@ -32,6 +32,8 @@ class Index:
             self.create_index(column)
         # it will be the most updated since we update index in there
         dict = self.indices[column]
+        if value not in dict:
+            return False
         rid = dict[value]
         # Rid is a list of rid's where value occurs
         return rid

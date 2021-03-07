@@ -397,7 +397,10 @@ class Table:
     def put_shared_lock(self, key):
         # Put a shared lock on the key by incrementing the corresponding value in self.shared_locks to
         # indicate that another transaction is reading that key
-        self.shared_locks[key] += 1
+        if key not in self.shared_locks:
+            self.shared_locks[key] = 1
+        else:
+            self.shared_locks[key] += 1
 
     def put_exclusive_lock(self, key):
         # Put a exclusive lock on the key by setting the corresponding value in self.shared_locks to TRUE
@@ -445,7 +448,11 @@ class Table:
             return True
 
     def lock_checker_shared(self, key):
-        if self.shared_locks[key] > 0:
+        if key not in self.shared_locks:
+            self.put_shared_lock(key)
+            return True
+        elif self.shared_locks[key] >= 0:
+            self.put_shared_lock(key)
             return True
         else:
             return False
