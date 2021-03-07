@@ -24,11 +24,10 @@ class Transaction:
     # t.add_query(q.update, key, *[None, 1, None, 2, None])
     """
     def add_query(self, query, *args):
-        """q = query
-        query_object = vars(sys.modules[q.__module__])[q.__qualname__.split('.')[0]]
-        query_object2 = self.get_table(query_object)
-        print("query object: ", query_object2)
-        self.table = query_object2"""
+        q = query
+        query_object = q.__self__
+        table = query_object.table
+        self.table = table
         self.queries.append((query, args))
 
     # If you choose to implement this differently this method must still return True if transaction commits or False on abort
