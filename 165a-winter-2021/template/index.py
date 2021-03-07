@@ -73,6 +73,16 @@ class Index:
     def drop_index(self, column_number):
         self.indices[column_number] = None
 
+    def insert_index(self, rid, column_values):
+        # get the rid and the column values
+        for i in range(1, self.table.num_columns):
+            index = self.indices[i] # dictionary
+            if column_values[i] in index:
+                index[column_values[i]].append(rid)
+            else:
+                index[column_values[i]] = [rid]
+
+
     def update_index(self, rid, new, old, column):
         if self.indices[column] == None or self.indices[column] == {}:
             self.create_index(column)

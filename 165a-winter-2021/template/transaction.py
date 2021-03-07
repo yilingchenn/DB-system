@@ -24,8 +24,7 @@ class Transaction:
     # t.add_query(q.update, key, *[None, 1, None, 2, None])
     """
     def add_query(self, query, *args):
-        q = query
-        query_object = q.__self__
+        query_object = query.__self__
         table = query_object.table
         self.table = table
         self.queries.append((query, args))

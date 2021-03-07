@@ -61,8 +61,12 @@ class Query:
     # Returns False if insert fails for whatever reason
     """
     def insert(self, *columns):
+        col_list = []
+        for col in columns:
+            col_list.append(col)
         # Generate a new RID from table class
         rid = self.table.gen_rid()
+        self.table.index.insert_index(rid, col_list)
         # timestamp for record
         timestamp = int(round(time() * 1000))
         # Schema encoding for internal columns
