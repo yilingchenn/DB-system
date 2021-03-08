@@ -8,11 +8,11 @@ class Transaction:
     """
     # Creates a transaction object.
     """
-    def __init__(self, table):
+    def __init__(self):
         self.queries = []
         self.exclusive_locks = {}  # key:key, value:True/False
         self.shared_locks = {}  # key:key, value:True/False
-        self.table = table
+        self.table = None
         pass
 
 
@@ -24,9 +24,6 @@ class Transaction:
     # t.add_query(q.update, key, *[None, 1, None, 2, None])
     """
     def add_query(self, query, *args):
-        query_object = query.__self__
-        table = query_object.table
-        self.table = table
         self.queries.append((query, args))
 
     # If you choose to implement this differently this method must still return True if transaction commits or False on abort
@@ -37,6 +34,9 @@ class Transaction:
         # select  = 3 (key, col, [1,1,1,1,1])
         # ag/sum = 3 (start, end, col)
         for query, args in self.queries:
+            query_object = query.__self__
+            table = query_object.table
+            self.table = table
             # checking for exclusive lock first
             if len(args) != 3:
                 # write actions

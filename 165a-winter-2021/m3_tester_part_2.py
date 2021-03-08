@@ -29,9 +29,9 @@ insert_transactions = []
 select_transactions = []
 update_transactions = []
 for i in range(num_threads):
-    insert_transactions.append(Transaction(grades_table))
-    select_transactions.append(Transaction(grades_table))
-    update_transactions.append(Transaction(grades_table))
+    insert_transactions.append(Transaction())
+    select_transactions.append(Transaction())
+    update_transactions.append(Transaction())
     transaction_workers.append(TransactionWorker())
     transaction_workers[i].add_transaction(insert_transactions[i])
     transaction_workers[i].add_transaction(select_transactions[i])
