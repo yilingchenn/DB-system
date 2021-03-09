@@ -1,3 +1,4 @@
+
 from template.table import Table, Record
 from template.index import Index
 
@@ -25,8 +26,5 @@ class TransactionWorker:
         for transaction in self.transactions:
             # each transaction returns True if committed or False if aborted
             self.stats.append(transaction.run())
-        # for False in stats
-        # put transaction into queue
-        # loop until queue is empty
         # stores the number of transactions that committed
         self.result = len(list(filter(lambda x: x, self.stats)))
