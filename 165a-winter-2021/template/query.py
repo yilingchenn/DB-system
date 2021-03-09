@@ -245,3 +245,96 @@ class Query:
             u = self.update(key, *updated_columns)
             return u
         return False
+
+
+    """ Max
+    ideally will have max(self, column_index, start = number, end = number),
+    which is the default/usual configuration
+    
+    :param start: int         # Start of the key range to find maximum
+    :param end: int           # End of the key range to find maximum
+    :param column_index: int  # Index of desired column to find maximum
+    # this function is only called on the primary key.
+    # Returns the summation of the given range upon success
+    # Returns False if no record exists in the given range
+    
+    returns an integer
+    """
+    def max(self, start, end, column_index):
+        max_value = 0
+
+        key_list = []
+        for i in range(start, end + 1):
+            if self.key_exists(i):
+                key_list.append(i)
+        if len(key_list) == 0:
+            return False
+        query_column = [0] * self.table.num_columns
+        query_column[column_index] = 1
+        for key in key_list:
+            value = self.select(key, 0, query_column)[0].columns[column_index]
+            if value > max_value:
+                max_value = value
+        return max_value
+
+
+    """ Min 
+    ideally will have max(self, column_index, start = number, end = number),
+    which is the default/usual configuration
+    
+    returns an integer
+    """
+    def min(self, start, end, column_index):
+        min_value = self.table.config.max_int
+
+        key_list = []
+        for i in range(start, end + 1):
+            if self.key_exists(i):
+                key_list.append(i)
+        if len(key_list) == 0:
+            return False
+        query_column = [0] * self.table.num_columns
+        query_column[column_index] = 1
+        for key in key_list:
+            value = self.select(key, 0, query_column)[0].columns[column_index]
+            if value < min_value:
+                min_value = value
+        return min_value
+
+    """ Count
+    Total Number of Records
+    
+    returns an integer
+    """
+    def count(self):
+        total = 0
+        all_keys = self.table.index_directory.keys
+        for key in all_keys:
+            if self.key_exists(key):
+                total += 1
+        return total
+
+    """
+        :param start_range: int         # Start of the key range to average
+        :param end_range: int           # End of the key range to average
+        :param average_columns: int  # Index of desired column to average
+        # this function is only called on the primary key.
+        # Returns the summation of the given range upon success
+        # Returns False if no record exists in the given range
+        """
+
+    def avg(self, start_range, end_range, average_column):
+        key_list = []
+        for i in range(start_range, end_range + 1):
+            if self.key_exists(i):
+                key_list.append(i)
+        if len(key_list) == 0:
+            return False
+        summation = 0
+        query_column = [0] * self.table.num_columns
+        query_column[average_column] = 1
+        for key in key_list:
+            summation += self.select(key, 0, query_column)[0].columns[average_column]
+        return summation/len(key_list)
+
+

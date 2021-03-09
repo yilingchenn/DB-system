@@ -77,6 +77,9 @@ class Index:
         # get the rid and the column values
         for i in range(1, self.table.num_columns):
             index = self.indices[i] # dictionary
+            if self.indices[i] == None:
+                self.create_index(i)
+                index = self.indices[i]
             if column_values[i] in index:
                 index[column_values[i]].append(rid)
             else:
