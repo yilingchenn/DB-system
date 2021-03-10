@@ -93,5 +93,5 @@ class Index:
         rid_list = temp_dict[old]
         update_index = rid_list.index(rid)
         temp_dict[old].pop(update_index)
-        if new != self.config.max_int:
+        if new is not None:
             temp_dict[new].append(rid)
