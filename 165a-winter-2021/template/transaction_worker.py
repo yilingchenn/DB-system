@@ -1,6 +1,7 @@
 
 from template.table import Table, Record
 from template.index import Index
+from template.planner import Planner
 
 class TransactionWorker:
 
@@ -23,8 +24,8 @@ class TransactionWorker:
     Runs a transaction
     """
     def run(self):
-        for transaction in self.transactions:
-            # each transaction returns True if committed or False if aborted
-            self.stats.append(transaction.run())
+        planner = Planner(self)
+        planner.plan()
+        self.stats = planner.execute()
         # stores the number of transactions that committed
         self.result = len(list(filter(lambda x: x, self.stats)))

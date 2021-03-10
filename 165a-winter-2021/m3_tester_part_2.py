@@ -26,16 +26,16 @@ except Exception as e:
 
 transaction_workers = []
 insert_transactions = []
-select_transactions = []
-update_transactions = []
+# select_transactions = []
+# update_transactions = []
 for i in range(num_threads):
     insert_transactions.append(Transaction())
-    select_transactions.append(Transaction())
-    update_transactions.append(Transaction())
+    # select_transactions.append(Transaction())
+    # update_transactions.append(Transaction())
     transaction_workers.append(TransactionWorker())
     transaction_workers[i].add_transaction(insert_transactions[i])
-    transaction_workers[i].add_transaction(select_transactions[i])
-    transaction_workers[i].add_transaction(update_transactions[i])
+    # transaction_workers[i].add_transaction(select_transactions[i])
+    # transaction_workers[i].add_transaction(update_transactions[i])
 worker_keys = [ {} for t in transaction_workers ]
 
 for i in range(0, 1000):
@@ -47,6 +47,20 @@ for i in range(0, 1000):
     q = Query(grades_table)
     insert_transactions[i].add_query(q.insert, *records[key])
     worker_keys[i][key] = True
+
+for transaction_worker in transaction_workers:
+    transaction_worker.run()
+    print("ran transaction worker")
+
+transaction_workers = []
+select_transactions = []
+# update_transactions = []
+for i in range(num_threads):
+    select_transactions.append(Transaction())
+    # update_transactions.append(Transaction())
+    transaction_workers.append(TransactionWorker())
+    transaction_workers[i].add_transaction(select_transactions[i])
+    # transaction_workers[i].add_transaction(update_transactions[i])
 
 t = 0
 _records = [records[key] for key in keys]
@@ -63,6 +77,13 @@ for c in range(grades_table.num_columns):
             select_transactions[t % num_threads].add_query(query.select, key, c, [1, 1, 1, 1, 1])
         t += 1
 
+transaction_workers = []
+update_transactions = []
+for i in range(num_threads):
+    update_transactions.append(Transaction())
+    transaction_workers.append(TransactionWorker())
+    transaction_workers[i].add_transaction(update_transactions[i])
+
 for j in range(0, num_threads):
     for key in worker_keys[j]:
         updated_columns = [None, None, None, None, None]
@@ -76,6 +97,7 @@ for j in range(0, num_threads):
 
 for transaction_worker in transaction_workers:
     transaction_worker.run()
+    print("ran transaction worker")
 
 score = len(keys)
 for key in keys:

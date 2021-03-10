@@ -46,6 +46,10 @@ class Table:
         self.shared_locks = {}
         self.exclusive_locks = {}
 
+    # Return the next RID for the next inserted element.
+    def get_next_rid(self):
+        return self.rid_counter+1
+
     # Creates a new file corresponding to the page_id to write/read from
     def create_new_file(self, page_id, table_name, num_cols):
         path = self.bufferpool.path

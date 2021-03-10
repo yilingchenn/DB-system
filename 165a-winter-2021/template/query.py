@@ -308,7 +308,7 @@ class Query:
     """
     def count(self):
         total = 0
-        all_keys = self.table.index_directory.keys
+        all_keys = list(self.table.index_directory.keys())
         for key in all_keys:
             if self.key_exists(key):
                 total += 1
