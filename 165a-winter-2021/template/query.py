@@ -255,7 +255,7 @@ class Query:
     :param end: int           # End of the key range to find maximum
     :param column_index: int  # Index of desired column to find maximum
     # this function is only called on the primary key.
-    # Returns the summation of the given range upon success
+    # Returns the biggest value of the given range upon success
     # Returns False if no record exists in the given range
     
     returns an integer
@@ -282,6 +282,13 @@ class Query:
     ideally will have max(self, column_index, start = number, end = number),
     which is the default/usual configuration
     
+    :param start: int         # Start of the key range to find maximum
+    :param end: int           # End of the key range to find maximum
+    :param column_index: int  # Index of desired column to find maximum
+    # this function is only called on the primary key.
+    # Returns the smallest value of the given range upon success
+    # Returns False if no record exists in the given range
+    
     returns an integer
     """
     def min(self, start, end, column_index):
@@ -304,6 +311,8 @@ class Query:
     """ Count
     Total Number of Records
     
+    does not take in any value, returns the total number of records
+    
     returns an integer
     """
     def count(self):
@@ -317,9 +326,9 @@ class Query:
     """
         :param start_range: int         # Start of the key range to average
         :param end_range: int           # End of the key range to average
-        :param average_columns: int  # Index of desired column to average
+        :param average_column: int  # Index of desired column to average
         # this function is only called on the primary key.
-        # Returns the summation of the given range upon success
+        # Returns the average of the values in the given range upon success
         # Returns False if no record exists in the given range
         """
 
