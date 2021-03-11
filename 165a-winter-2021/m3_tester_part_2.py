@@ -3,6 +3,7 @@ from template.query import Query
 from template.transaction import Transaction
 from template.transaction_worker import TransactionWorker
 from template.config import init
+import time
 
 from random import choice, randint, sample, seed
 
@@ -24,19 +25,14 @@ try:
 except Exception as e:
     print('Index API not implemented properly, tests may fail.')
 
-transaction_workers = []
+# Insert Transaction Workers
+transaction_workers_insert = []
 insert_transactions = []
-# select_transactions = []
-# update_transactions = []
 for i in range(num_threads):
     insert_transactions.append(Transaction())
-    # select_transactions.append(Transaction())
-    # update_transactions.append(Transaction())
-    transaction_workers.append(TransactionWorker())
-    transaction_workers[i].add_transaction(insert_transactions[i])
-    # transaction_workers[i].add_transaction(select_transactions[i])
-    # transaction_workers[i].add_transaction(update_transactions[i])
-worker_keys = [ {} for t in transaction_workers ]
+    transaction_workers_insert.append(TransactionWorker())
+    transaction_workers_insert[i].add_transaction(insert_transactions[i])
+worker_keys = [ {} for t in transaction_workers_insert ]
 
 for i in range(0, 1000):
     key = 92106429 + i
@@ -48,19 +44,20 @@ for i in range(0, 1000):
     insert_transactions[i].add_query(q.insert, *records[key])
     worker_keys[i][key] = True
 
-for transaction_worker in transaction_workers:
+# Running insertion transaction workers
+transaction_worker_counter = 0
+for transaction_worker in transaction_workers_insert:
     transaction_worker.run()
-    print("ran transaction worker")
+    print("starting insert transaction worker ", transaction_worker_counter)
+    transaction_worker_counter += 1
+    # transaction_worker.thread.join()
 
-transaction_workers = []
+transaction_workers_select = []
 select_transactions = []
-# update_transactions = []
 for i in range(num_threads):
     select_transactions.append(Transaction())
-    # update_transactions.append(Transaction())
-    transaction_workers.append(TransactionWorker())
-    transaction_workers[i].add_transaction(select_transactions[i])
-    # transaction_workers[i].add_transaction(update_transactions[i])
+    transaction_workers_select.append(TransactionWorker())
+    transaction_workers_select[i].add_transaction(select_transactions[i])
 
 t = 0
 _records = [records[key] for key in keys]
@@ -77,12 +74,12 @@ for c in range(grades_table.num_columns):
             select_transactions[t % num_threads].add_query(query.select, key, c, [1, 1, 1, 1, 1])
         t += 1
 
-transaction_workers = []
+transaction_workers_update = []
 update_transactions = []
 for i in range(num_threads):
     update_transactions.append(Transaction())
-    transaction_workers.append(TransactionWorker())
-    transaction_workers[i].add_transaction(update_transactions[i])
+    transaction_workers_update.append(TransactionWorker())
+    transaction_workers_update[i].add_transaction(update_transactions[i])
 
 for j in range(0, num_threads):
     for key in worker_keys[j]:
@@ -95,9 +92,14 @@ for j in range(0, num_threads):
             update_transactions[j].add_query(query.update, key, *updated_columns)
             updated_columns = [None, None, None, None, None]
 
-for transaction_worker in transaction_workers:
+transaction_worker_counter = 0
+for transaction_worker in transaction_workers_update:
     transaction_worker.run()
-    print("ran transaction worker")
+    print("starting insert transaction worker ", transaction_worker_counter)
+    transaction_worker_counter += 1
+    # transaction_worker.thread.join()
+
+time.sleep(30)
 
 score = len(keys)
 for key in keys:
