@@ -8,9 +8,9 @@ class TransactionWorker:
     """
     # Creates a transaction worker object.
     """
-    def __init__(self, transactions = []):
+    def __init__(self):
         self.stats = []
-        self.transactions = transactions
+        self.transactions = []
         self.result = 0
         pass
 
