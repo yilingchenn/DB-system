@@ -14,7 +14,7 @@ grades_table = db.create_table('Grades', 5, 0)
 keys = []
 records = {}
 seed(3562901)
-num_threads = 8
+num_threads = 2
 
 try:
     grades_table.index.create_index(1)
@@ -74,8 +74,18 @@ for j in range(0, num_threads):
             update_transactions[j].add_query(query.update, key, *updated_columns)
             updated_columns = [None, None, None, None, None]
 
+threads = []
+threadID = 0
+
 for transaction_worker in transaction_workers:
-    transaction_worker.run()
+    # transaction_worker.run()
+    thread = transaction_worker
+    thread.start()
+    threads.append(thread)
+    threadID += 1
+
+for t in threads:
+    t.join()
 
 score = len(keys)
 for key in keys:

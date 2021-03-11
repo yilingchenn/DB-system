@@ -104,7 +104,6 @@ class Transaction:
                     if self.shared_locks[key] == False:
                         return self.abort()
 
-
         # somehow need when the transaction to start running
         for query, args in self.queries:
             # assigning lock to this transactions
