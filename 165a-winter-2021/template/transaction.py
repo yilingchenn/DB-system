@@ -9,13 +9,12 @@ class Transaction:
     """
     # Creates a transaction object.
     """
-    def __init__(self, i):
+    def __init__(self):
         self.queries = []
         self.exclusive_locks = {}  # key:key, value:True/False
         self.shared_locks = {}  # key:key, value:True/False
         self.table = None
         self.lock = threading.Lock()
-        self.num = i
         pass
 
     """
@@ -30,7 +29,6 @@ class Transaction:
 
     # If you choose to implement this differently this method must still return True if transaction commits or False on abort
     def run(self):
-        print(self.num)
         # self.lock.acquire()
         # delete = 1 (key)
         # insert = num cols (key, value, value...)

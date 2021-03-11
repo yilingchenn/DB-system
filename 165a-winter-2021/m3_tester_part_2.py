@@ -5,6 +5,7 @@ from template.transaction_worker import TransactionWorker
 from template.config import init
 
 from random import choice, randint, sample, seed
+import time
 
 init()
 db = Database()
@@ -24,14 +25,17 @@ try:
 except Exception as e:
     print('Index API not implemented properly, tests may fail.')
 
+start_time = time.time()
+print("Start Time: ", start_time)
+
 transaction_workers = []
 insert_transactions = []
 select_transactions = []
 update_transactions = []
 for i in range(num_threads):
-    insert_transactions.append(Transaction(i))
-    select_transactions.append(Transaction(i))
-    update_transactions.append(Transaction(i))
+    insert_transactions.append(Transaction())
+    select_transactions.append(Transaction())
+    update_transactions.append(Transaction())
     transaction_workers.append(TransactionWorker())
     transaction_workers[i].add_transaction(insert_transactions[i])
     transaction_workers[i].add_transaction(select_transactions[i])
@@ -79,6 +83,10 @@ for transaction_worker in transaction_workers:
 
 for transaction_worker in transaction_workers:
     transaction_worker.thread.join()
+
+end_time = time.time()
+print("Emd Time: ", end_time)
+print("Total Seconds: ", end_time - start_time)
 
 score = len(keys)
 for key in keys:
