@@ -9,13 +9,16 @@ class TransactionWorker (threading.Thread):
     # Creates a transaction worker object.
     """
     def __init__(self):
-        threading.Thread.__init__(self)
+        self.thread = threading.Thread(function = self.run2, args=())
         self.stats = []
         self.transactions = []
         self.result = 0
-        self.lock = threading.Lock()
+        self.lock = None
         pass
 
+    def makelock(self):
+        self.lock = threading.Lock()
+        return self.lock
     """
     Appends t to transactions
     """

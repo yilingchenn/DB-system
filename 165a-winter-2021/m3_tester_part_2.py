@@ -76,13 +76,10 @@ for j in range(0, num_threads):
 
 threads = []
 threadID = 0
-
+thread
 for transaction_worker in transaction_workers:
     # transaction_worker.run()
-    thread = transaction_worker
-    thread.start()
-    threads.append(thread)
-    threadID += 1
+
 
 for t in threads:
     t.join()
