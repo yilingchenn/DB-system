@@ -2,19 +2,21 @@ from template.table import Table, Record
 from template.index import Index
 from template.query import Query
 import sys
+import threading
 
 class Transaction:
 
     """
     # Creates a transaction object.
     """
-    def __init__(self):
+    def __init__(self, i):
         self.queries = []
         self.exclusive_locks = {}  # key:key, value:True/False
         self.shared_locks = {}  # key:key, value:True/False
         self.table = None
+        self.lock = threading.Lock()
+        self.num = i
         pass
-
 
     """
     # Adds the given query to this transaction
@@ -28,6 +30,8 @@ class Transaction:
 
     # If you choose to implement this differently this method must still return True if transaction commits or False on abort
     def run(self):
+        print(self.num)
+        # self.lock.acquire()
         # delete = 1 (key)
         # insert = num cols (key, value, value...)
         # update = num cols + 1 (key, None, None,value, ....)
@@ -103,7 +107,6 @@ class Transaction:
                         self.shared_locks[key] = self.table.lock_checker_shared(key)
                     if self.shared_locks[key] == False:
                         return self.abort()
-
         # somehow need when the transaction to start running
         for query, args in self.queries:
             # assigning lock to this transactions
@@ -139,4 +142,5 @@ class Transaction:
         for key in self.shared_locks:
             if self.shared_locks[key] == True:
                 self.table.unlock_shared(key)
+        # self.lock.release()
         return True

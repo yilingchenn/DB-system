@@ -14,7 +14,7 @@ grades_table = db.create_table('Grades', 5, 0)
 keys = []
 records = {}
 seed(3562901)
-num_threads = 2
+num_threads = 8
 
 try:
     grades_table.index.create_index(1)
@@ -29,9 +29,9 @@ insert_transactions = []
 select_transactions = []
 update_transactions = []
 for i in range(num_threads):
-    insert_transactions.append(Transaction())
-    select_transactions.append(Transaction())
-    update_transactions.append(Transaction())
+    insert_transactions.append(Transaction(i))
+    select_transactions.append(Transaction(i))
+    update_transactions.append(Transaction(i))
     transaction_workers.append(TransactionWorker())
     transaction_workers[i].add_transaction(insert_transactions[i])
     transaction_workers[i].add_transaction(select_transactions[i])
@@ -74,24 +74,16 @@ for j in range(0, num_threads):
             update_transactions[j].add_query(query.update, key, *updated_columns)
             updated_columns = [None, None, None, None, None]
 
-threads = []
-threadID = 0
+for transaction_worker in transaction_workers:
+    transaction_worker.run()
 
 for transaction_worker in transaction_workers:
-    # transaction_worker.run()
-    thread = transaction_worker
-    thread.start()
-    threads.append(thread)
-    threadID += 1
-
-for t in threads:
-    t.join()
+    transaction_worker.thread.join()
 
 score = len(keys)
 for key in keys:
     correct = records[key]
     query = Query(grades_table)
-    #TODO: modify this line based on what your SELECT returns
     result = query.select(key, 0, [1, 1, 1, 1, 1])[0].columns
     if correct != result:
         print('select error on primary key', key, ':', result, ', correct:', correct)
