@@ -317,12 +317,12 @@ class Table:
     def get_page_range(self, key):
         if key in self.index_directory:
             rid = self.index_directory[key]
-            page_internal = self.page_directory[rid][0]
-            page_index = self.base_pages_internal.index(page_internal)
+            page_external = self.page_directory[rid][1]
+            page_index = self.base_pages_external.index(page_external)
             page_range = page_index//self.config.page_range_size
             return page_range
         else:
-            page_index = len(self.base_pages_internal)-1
+            page_index = len(self.base_pages_external)-1
             page_range = page_index//self.config.page_range_size
             return page_range
 

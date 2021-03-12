@@ -42,7 +42,7 @@ for i in range(num_threads):
     transaction_workers[i].add_transaction(update_transactions[i])
 worker_keys = [ {} for t in transaction_workers ]
 
-for i in range(0, 5000):
+for i in range(0, 1000):
     key = 92106429 + i
     keys.append(key)
     i = i % num_threads
@@ -85,7 +85,7 @@ for transaction_worker in transaction_workers:
     transaction_worker.thread.join()
 
 end_time = time.time()
-print("Emd Time: ", end_time)
+print("End Time: ", end_time)
 print("Total Seconds: ", end_time - start_time)
 
 score = len(keys)
