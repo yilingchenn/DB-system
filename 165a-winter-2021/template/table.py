@@ -2,6 +2,7 @@ from template.page import *
 from template.index import Index
 from time import time
 from template.bufferpool import Bufferpool
+import threading
 import os
 
 class Record:
@@ -45,6 +46,8 @@ class Table:
         # Implementing locks
         self.shared_locks = {}
         self.exclusive_locks = {}
+        self.locks = [threading.Lock()]
+
 
     # Creates a new file corresponding to the page_id to write/read from
     def create_new_file(self, page_id, table_name, num_cols):
@@ -165,6 +168,7 @@ class Table:
                 self.num_page += 1
                 self.tail_pages.append(self.num_page)
                 self.create_new_file(self.num_page, self.name, self.total_columns)
+                self.locks.append(threading.Lock())
         return bufferpool_slot_internal, bufferpool_slot_external
 
     # Given the pageId of a base page, return the pageId corresponding to the tail page for that base page.
@@ -309,6 +313,19 @@ class Table:
         element = page.read(offset)
         element_decoded = int.from_bytes(element, byteorder = "big")
         return element_decoded
+
+    def get_page_range(self, key):
+        if key in self.index_directory:
+            rid = self.index_directory[key]
+            page_internal = self.page_directory[rid][0]
+            page_index = self.base_pages_internal.index(page_internal)
+            page_range = page_index//self.config.page_range_size
+            return page_range
+        else:
+            page_index = len(self.base_pages_internal)-1
+            page_range = page_index//self.config.page_range_size
+            return page_range
+
 
     # list of lists is converted to a single list
     def flatten_page_directory_list(self, page_directory_values):

@@ -9,12 +9,13 @@ class Transaction:
     """
     # Creates a transaction object.
     """
-    def __init__(self):
+    def __init__(self, i):
         self.queries = []
         self.exclusive_locks = {}  # key:key, value:True/False
         self.shared_locks = {}  # key:key, value:True/False
         self.table = None
-        self.lock = threading.Lock()
+        self.latch = {} #key:page_range, value:lock
+        self.num = i
         pass
 
     """
@@ -29,6 +30,7 @@ class Transaction:
 
     # If you choose to implement this differently this method must still return True if transaction commits or False on abort
     def run(self):
+        print("Transaction:",self.num)
         # self.lock.acquire()
         # delete = 1 (key)
         # insert = num cols (key, value, value...)
@@ -44,6 +46,12 @@ class Transaction:
                 # write actions
                 # get key
                 key = args[0]
+                lock_index = self.table.get_page_range(key)
+                # if the lock_index is not in self.latch, we grant the lock
+                if lock_index not in self.latch:
+                    lock = self.table.locks[lock_index]
+                    self.latch[lock_index] = lock
+                    lock.acquire()
                 # check if we already have a shared lock
                 has_shared = False
                 if key in self.shared_locks and self.shared_locks[key] == True:
@@ -63,6 +71,12 @@ class Transaction:
                 if args[1] == 0:
                     # args[0] is primary key
                     key = args[0]
+                    lock_index = self.table.get_page_range(key)
+                    # if the lock_index is not in self.latch, we grant the lock
+                    if lock_index not in self.latch:
+                        lock = self.table.locks[lock_index]
+                        self.latch[lock_index] = lock
+                        lock.acquire()
                     # check if we already have an exclusive lock
                     if key in self.exclusive_locks and self.exclusive_locks[key] == True:
                         continue
@@ -73,6 +87,7 @@ class Transaction:
                     if self.shared_locks[key] == False:
                         return self.abort()
                 else:
+                # not primary key
                     value = args[0]
                     col = args[1]
                     key_list = []
@@ -82,6 +97,10 @@ class Transaction:
                     for rid in rid_list:
                         key_list.append(self.table.get_most_updated(rid)[0])
                     for key in key_list:
+                        lock_index = self.table.get_page_range(key)
+                        if lock_index not in self.latch:
+                            self.latch[key] = self.table.locks[lock_index]
+                            self.latch[key].acquire()
                         # check if we already have an exclusive lock
                         if key in self.exclusive_locks and self.exclusive_locks[key] == True:
                             continue
@@ -96,6 +115,11 @@ class Transaction:
                 start = args[0]
                 end = args[1]
                 for key in range(start, end):
+                    # if the lock_index is not in self.latch, we grant the lock
+                    if lock_index not in self.latch:
+                        lock = self.table.locks[lock_index]
+                        self.latch[lock_index] = lock
+                        lock.acquire()
                     # check if we already have an exclusive lock
                     if key in self.exclusive_locks and self.exclusive_locks[key] == True:
                         continue
@@ -112,7 +136,9 @@ class Transaction:
             # upgrade the ones that are gonna be read to exclusive lock
             # this includes removing these keys from the shared lock lists
             # lock + lock check
+
             result = query(*args)
+
             # If the query has failed the transaction should abort
             if result == False:
                 # we need to remove everything happened after that time stamp
@@ -129,6 +155,8 @@ class Transaction:
         for key in self.shared_locks:
             if self.shared_locks[key] == True:
                 self.table.unlock_shared(key)
+        for key in list(self.latch.keys()):
+            self.latch[key].release()
         return False
 
     def commit(self):
@@ -140,5 +168,7 @@ class Transaction:
         for key in self.shared_locks:
             if self.shared_locks[key] == True:
                 self.table.unlock_shared(key)
+        for key in list(self.latch.keys()):
+            self.latch[key].release()
         # self.lock.release()
         return True

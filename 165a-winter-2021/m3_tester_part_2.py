@@ -33,16 +33,16 @@ insert_transactions = []
 select_transactions = []
 update_transactions = []
 for i in range(num_threads):
-    insert_transactions.append(Transaction())
-    select_transactions.append(Transaction())
-    update_transactions.append(Transaction())
-    transaction_workers.append(TransactionWorker())
+    insert_transactions.append(Transaction(i))
+    select_transactions.append(Transaction(i))
+    update_transactions.append(Transaction(i))
+    transaction_workers.append(TransactionWorker(i))
     transaction_workers[i].add_transaction(insert_transactions[i])
     transaction_workers[i].add_transaction(select_transactions[i])
     transaction_workers[i].add_transaction(update_transactions[i])
 worker_keys = [ {} for t in transaction_workers ]
 
-for i in range(0, 1000):
+for i in range(0, 5000):
     key = 92106429 + i
     keys.append(key)
     i = i % num_threads

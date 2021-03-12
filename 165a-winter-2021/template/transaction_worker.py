@@ -9,13 +9,14 @@ class TransactionWorker:
     """
     # Creates a transaction worker object.
     """
-    def __init__(self):
+    def __init__(self,i):
         self.thread = threading.Thread(target = self.run_transaction, args=())
         self.stats = []
         self.transactions = []
         self.result = 0
         self.lock = threading.Lock()
         self.queue = queue.Queue()
+        self.num = i
         pass
 
     """
@@ -31,17 +32,19 @@ class TransactionWorker:
             # each transaction returns True if committed or False if aborted
             with self.lock:
                 self.stats.append(transaction.run())
+
                 # try different time here
-                time.sleep(2.5)
+                # time.sleep(2.5)
         self.result = len(list(filter(lambda x: x, self.stats)))
 
     def run(self):
+        print("start thread: ", self.num)
         self.thread.start()
         # populate queue with data
-        self.lock.acquire()
-        for transaction in self.transactions:
-            self.queue.put(transaction)
-        self.lock.release()
+        #self.lock.acquire()
+        #for transaction in self.transactions:
+            #self.queue.put(transaction)
+        #self.lock.release()
         # wait on the queue until everything has been processed
         # self.queue.join()
 
