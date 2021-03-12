@@ -3,7 +3,9 @@ from template.query import Query
 from template.transaction import Transaction
 from template.transaction_worker import TransactionWorker
 from template.config import init
-
+import threading
+import time
+import logging
 from random import choice, randint, sample, seed
 
 init()
@@ -14,7 +16,7 @@ grades_table = db.create_table('Grades', 5, 0)
 keys = []
 records = {}
 seed(3562901)
-num_threads = 2
+num_threads = 8
 
 try:
     grades_table.index.create_index(1)
@@ -29,9 +31,9 @@ insert_transactions = []
 select_transactions = []
 update_transactions = []
 for i in range(num_threads):
-    insert_transactions.append(Transaction())
-    select_transactions.append(Transaction())
-    update_transactions.append(Transaction())
+    insert_transactions.append(Transaction(i))
+    select_transactions.append(Transaction(i))
+    update_transactions.append(Transaction(i))
     transaction_workers.append(TransactionWorker())
     transaction_workers[i].add_transaction(insert_transactions[i])
     transaction_workers[i].add_transaction(select_transactions[i])
@@ -76,13 +78,19 @@ for j in range(0, num_threads):
 
 threads = []
 threadID = 0
-thread
+lock = None
 for transaction_worker in transaction_workers:
-    # transaction_worker.run()
+    if lock is None:
+        lock = transaction_worker.makelock()
+    else:
+        transaction_worker.lock = lock
+    transaction_worker.run()
+    threads.append(transaction_worker.thread)
+
+for j in range(len(threads)):
+    threads[j].join()
 
 
-for t in threads:
-    t.join()
 
 score = len(keys)
 for key in keys:
@@ -93,6 +101,8 @@ for key in keys:
     if correct != result:
         print('select error on primary key', key, ':', result, ', correct:', correct)
         score -= 1
+    #else:
+        #print('select on primary key', key, ':', result, ', correct:', correct)
 print('Score', score, '/', len(keys))
 
 db.close()

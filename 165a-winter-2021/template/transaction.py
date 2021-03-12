@@ -2,17 +2,20 @@ from template.table import Table, Record
 from template.index import Index
 from template.query import Query
 import sys
+import time
 
 class Transaction:
 
     """
     # Creates a transaction object.
     """
-    def __init__(self):
+    def __init__(self, num):
         self.queries = []
         self.exclusive_locks = {}  # key:key, value:True/False
         self.shared_locks = {}  # key:key, value:True/False
         self.table = None
+        self.num = num
+        self.lock = None
         pass
 
 
@@ -28,12 +31,14 @@ class Transaction:
 
     # If you choose to implement this differently this method must still return True if transaction commits or False on abort
     def run(self):
+        print("Transaction: ", self.num)
         # delete = 1 (key)
         # insert = num cols (key, value, value...)
         # update = num cols + 1 (key, None, None,value, ....)
         # select  = 3 (key, col, [1,1,1,1,1])
         # ag/sum = 3 (start, end, col)
         for query, args in self.queries:
+            self.lock.acquire()
             query_object = query.__self__
             table = query_object.table
             self.table = table
@@ -52,6 +57,8 @@ class Transaction:
                 #check for lock_checker_exclusive
                 self.exclusive_locks[key] = self.table.lock_checker_exclusive(key, has_shared)
                 if self.exclusive_locks[key] == False:
+                    self.lock.release()
+                    time.sleep(0.1)
                     return self.abort()
                 if has_shared:
                     self.shared_locks[key] = False
@@ -69,6 +76,8 @@ class Transaction:
                     else:
                         self.shared_locks[key] = self.table.lock_checker_shared(key)
                     if self.shared_locks[key] == False:
+                        self.lock.release()
+                        time.sleep(0.1)
                         return self.abort()
                 else:
                     value = args[0]
@@ -76,6 +85,8 @@ class Transaction:
                     key_list = []
                     rid_list = self.table.index.locate(col, value)
                     if rid_list == False:
+                        self.lock.release()
+                        time.sleep(0.1)
                         return self.abort()
                     for rid in rid_list:
                         key_list.append(self.table.get_most_updated(rid)[0])
@@ -88,6 +99,8 @@ class Transaction:
                         else:
                             self.shared_locks[key] = self.table.lock_checker_shared(key)
                         if self.shared_locks[key] == False:
+                            self.lock.release()
+                            time.sleep(0.1)
                             return self.abort()
             else:
                 # ag/sum (start, end, col)
@@ -102,7 +115,12 @@ class Transaction:
                     else:
                         self.shared_locks[key] = self.table.lock_checker_shared(key)
                     if self.shared_locks[key] == False:
+                        self.lock.release()
+                        time.sleep(0.1)
                         return self.abort()
+
+            self.lock.release()
+            time.sleep(0.01)
 
         # somehow need when the transaction to start running
         for query, args in self.queries:
@@ -119,6 +137,7 @@ class Transaction:
         return self.commit()
 
     def abort(self):
+
         # TODO: do roll-back and any other necessary operations
         # remove data that was put in after that time stamp
         # the whole transaction gets abort
