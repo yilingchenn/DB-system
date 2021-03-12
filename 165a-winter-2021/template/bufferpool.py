@@ -3,6 +3,7 @@ from template.page import Page
 # from index import Index
 # from time import time
 from template.config import init
+import threading
 
 import os
 
@@ -13,6 +14,7 @@ class Slot:
         self.table_name = table_name  # Key that identifies the table that the pages came from
         self.page_id = page_id  # Within the table, the pageID that the memory in the slot corresponds to
         self.pages = pages  # The actual list of page objects representing the data
+        self.lock = threading.Lock()
 
 
 class Bufferpool:
