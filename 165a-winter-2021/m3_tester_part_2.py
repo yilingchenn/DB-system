@@ -5,7 +5,6 @@ from template.transaction_worker import TransactionWorker
 from template.config import init
 
 from random import choice, randint, sample, seed
-import time
 
 init()
 db = Database()
@@ -25,9 +24,6 @@ try:
 except Exception as e:
     print('Index API not implemented properly, tests may fail.')
 
-start_time = time.time()
-print("Start Time: ", start_time)
-
 transaction_workers = []
 insert_transactions = []
 select_transactions = []
@@ -40,14 +36,14 @@ for i in range(num_threads):
     transaction_workers[i].add_transaction(insert_transactions[i])
     transaction_workers[i].add_transaction(select_transactions[i])
     transaction_workers[i].add_transaction(update_transactions[i])
-worker_keys = [ {} for t in transaction_workers ]
+worker_keys = [{} for t in transaction_workers]
 
 for i in range(0, 1000):
     key = 92106429 + i
     keys.append(key)
     i = i % num_threads
-    records[key] = [key, randint(i * 20, (i + 1) * 20), randint(i * 20, (i + 1) * 20), randint(i * 20, (i + 1) * 20), randint(i * 20, (i + 1) * 20)]
-    #records[key] = [key, randint(0, 20), randint(0, 20), randint(0, 20), randint(0, 20)]
+    records[key] = [key, randint(i * 20, (i + 1) * 20), randint(i * 20, (i + 1) * 20), randint(i * 20, (i + 1) * 20),
+                    randint(i * 20, (i + 1) * 20)]
     q = Query(grades_table)
     insert_transactions[i].add_query(q.insert, *records[key])
     worker_keys[i][key] = True
@@ -84,14 +80,11 @@ for transaction_worker in transaction_workers:
 for transaction_worker in transaction_workers:
     transaction_worker.thread.join()
 
-end_time = time.time()
-print("Emd Time: ", end_time)
-print("Total Seconds: ", end_time - start_time)
-
 score = len(keys)
 for key in keys:
     correct = records[key]
     query = Query(grades_table)
+
     result = query.select(key, 0, [1, 1, 1, 1, 1])[0].columns
     if correct != result:
         print('select error on primary key', key, ':', result, ', correct:', correct)

@@ -34,17 +34,16 @@ for i in range(num_threads):
 for i in range(0, 1000):
     key = 92106429 + i
     keys.append(key)
-    #i = i % num_threads
-    #records[key] = [key, randint(i * 20, (i + 1) * 20), randint(i * 20, (i + 1) * 20), randint(i * 20, (i + 1) * 20),
-                    #randint(i * 20, (i + 1) * 20)]
     records[key] = [key, randint(0, 20), randint(0, 20), randint(0, 20), randint(0, 20)]
     q = Query(grades_table)
-    #t = insert_transactions[i]
     t = insert_transactions[i % num_threads]
     t.add_query(q.insert, *records[key])
 
 # Commit to disk
 for i in range(num_threads):
     transaction_workers[i].run()
+
+for i in range(num_threads):
+    transaction_workers[i].thread.join()
 
 db.close()
