@@ -18,17 +18,18 @@ class Query:
 
     # Returns if the key exists in the dictionary
     def key_exists(self, key):
-        self.table.index_directory_lock.acquire()
-        rid = self.table.index_directory[key]
-        self.table.index_directory_lock.release()
-        if key in self.table.index_directory.keys():
-            temp = self.get_most_updated(self.table.index_directory[key])
-            if temp == [self.table.config.max_int]*self.table.num_columns:
-                return False
+        with self.table.index_directory_lock:
+            rid = self.table.index_directory[key]
+            if key in self.table.index_directory.keys():
+                self.table.page_directory_lock.acquire()
+                temp = self.table.get_most_updated(self.table.index_directory[key])
+                self.table.page_directory_lock.release()
+                if temp == [self.table.config.max_int]*self.table.num_columns:
+                    return False
+                else:
+                    return True
             else:
-                return True
-        else:
-            return False
+                return False
 
     """
     # internal Method
@@ -139,7 +140,8 @@ class Query:
         record_list = []
         for k in range(0, len(rid_list)):
             rid = rid_list[k]
-            columns = self.table.get_most_updated(rid)
+            with self.table.page_directory_lock:
+                columns = self.table.get_most_updated(rid)
             primary_key = columns[0]
             for j in range(0, len(query_columns)):
                 columns[j] = columns[j] * query_columns[j]
@@ -161,18 +163,28 @@ class Query:
         if not self.key_exists(key):
             return False
         # everything from base page and page_directory
+        # Put locks on index_directory and page directory
+        self.table.index_directory_lock.acquire()
+        self.table.page_directory_lock.acquire()
+        # TODO: index/page directory locked
         base_record_rid = self.table.index_directory[key]
+        most_updated = self.table.get_most_updated(base_record_rid)
         base_page_id_internal = self.table.page_directory[base_record_rid][0] # column
         base_page_offset = self.table.page_directory[base_record_rid][2] # offset
         # Get tail page stuff
         tail_page_id = self.table.get_tail_page(base_page_id_internal)
         bufferpool_slot_tail = self.table.return_bufferpool_slot(tail_page_id, self.table.name, False, True)
-        most_updated = self.table.get_most_updated(base_record_rid)
+        bufferpool_slot_tail.lock.acquire()
+        # TODO: bufferpool slot tail lock acquired
         # Generate values for tail page
+        self.table.rid_counter_lock.acquire()
         tail_page_rid = self.table.gen_rid()
+        self.table.rid_counter_lock.release()
         timestamp = int(round(time() * 1000))
         # Get base values afterwards
         bufferpool_slot_base_internal = self.table.return_bufferpool_slot(base_page_id_internal, self.table.name, False, False)
+        # TODO: bufferpool slot base internal locked
+        bufferpool_slot_base_internal.lock.acquire()
         base_page_indirection = self.table.get_indirection_base(bufferpool_slot_base_internal, base_page_offset)
         base_page_schema_encoding = self.table.get_schema_encoding_base(bufferpool_slot_base_internal, base_page_offset)
         # Add tail record to page_directory
@@ -223,6 +235,11 @@ class Query:
         bufferpool_slot_base_internal.pages[3].edit(base_page_offset, tail_page_rid)
         bufferpool_slot_base_internal.is_clean = False
         bufferpool_slot_tail.is_clean = False
+        # TODO: release all locks
+        bufferpool_slot_base_internal.lock.release()
+        bufferpool_slot_tail.lock.release()
+        self.table.index_directory_lock.release()
+        self.table.page_directory_lock.release()
         return True
 
     """

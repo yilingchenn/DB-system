@@ -9,12 +9,11 @@ class Transaction:
     """
     # Creates a transaction object.
     """
-    def __init__(self, i):
+    def __init__(self):
         self.queries = []
         self.exclusive_locks = {}  # key:key, value:True/False
         self.shared_locks = {}  # key:key, value:True/False
         self.table = None
-        self.num = i
         pass
 
     """

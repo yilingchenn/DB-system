@@ -115,7 +115,7 @@ class Table:
     def get_most_updated(self, rid):
         # Get all information from the base record
         # rid = self.index_directory[key]
-        self.page_directory_lock.acquire()
+        # self.page_directory_lock.acquire()
         base_page_id_internal = self.page_directory[rid][0]
         base_page_id_external = self.page_directory[rid][1]
         base_offset = self.page_directory[rid][2]
@@ -157,8 +157,7 @@ class Table:
                         # Read from the tail
                         element = tail_record[i]
                     record_as_list.append(element)
-
-                self.page_directory_lock.release()
+                # self.page_directory_lock.release()
                 return record_as_list
 
     # Checker takes in the bufferpool slots that corresponds to the current base page.
@@ -196,38 +195,53 @@ class Table:
     # Checks if the tail page has capacity, and merges if it doesn't.
     # Return the slot in the bufferpool.
     def get_tail_page(self, base_page_id_internal):
-        base_index = self.base_pages_internal.index(base_page_id_internal)
-        range_size = self.config.page_range_size
-        tail_index = base_index//range_size
-        tail_page_id = self.tail_pages[tail_index]
-        if tail_page_id == 0:
-            # Tail page has not been allocated yet. Need to allocate it, we know we will have space becasue its empty.
-            self.num_page += 1
-            self.tail_pages[tail_index] = self.num_page
-            self.create_new_file(self.num_page, self.name, self.total_columns)
-            return self.num_page
-        else:
-            tail_page_slot = self.return_bufferpool_slot(tail_page_id, self.name, False, True)
-            tail_page_slot_pages = tail_page_slot.pages
-            if not tail_page_slot_pages[0].has_capacity():
-                # Current bufferpool doesn't have capacity, so need to merge.
-                self.merge(tail_index)
-                self.num_page += 1
-                self.tail_pages[tail_index] = self.num_page
-                self.create_new_file(self.num_page, self.name, self.total_columns)
-                tail_page_id = self.num_page
-            return tail_page_id
+        # put a lock on base_pages_internal
+        # TODO: tail pages and num pages locked
+        with self.tail_pages_lock:
+            with self.num_page_lock:
+                self.base_pages_internal_lock.acquire()
+                base_index = self.base_pages_internal.index(base_page_id_internal)
+                range_size = self.config.page_range_size
+                tail_index = base_index//range_size
+                tail_page_id = self.tail_pages[tail_index]
+                self.base_pages_internal_lock.release()
+                if tail_page_id == 0:
+                    # Tail page has not been allocated yet. Need to allocate it, we know we will have space becasue its empty.
+                    self.num_page += 1
+                    self.tail_pages[tail_index] = self.num_page
+                    self.create_new_file(self.num_page, self.name, self.total_columns)
+                    return self.num_page
+                else:
+                    tail_page_slot = self.return_bufferpool_slot(tail_page_id, self.name, False, True)
+                    tail_page_slot.lock.acquire()
+                    tail_page_slot_pages = tail_page_slot.pages
+                    if not tail_page_slot_pages[0].has_capacity():
+                        # Current bufferpool doesn't have capacity, so need to merge.
+                        # Going into merge, we've locked index_directory, page_directory, num_pages, tail_pages, and
+                        #   the full tail page slot
+                        tail_page_slot.lock.release()
+                        self.merge(tail_index)
+                        self.num_page += 1
+                        self.tail_pages[tail_index] = self.num_page
+                        self.create_new_file(self.num_page, self.name, self.total_columns)
+                        tail_page_id = self.num_page
+                    if tail_page_slot.lock.locked():
+                        tail_page_slot.lock.release()
+                    return tail_page_id
 
     def range_number_to_base_id(self, range_number):
         base_page_id_array = []
         start = range_number * self.config.page_range_size
         end = (range_number + 1) * self.config.page_range_size
+        self.base_pages_internal_lock.acquire()
         for i in range(start, end):
             if i < len(self.base_pages_internal):
                 base_page_id_array.append(i)
+        self.base_pages_internal_lock.release()
         return base_page_id_array
 
-    # Merge occurs fully in the background
+    # Going into merge, we've locked index_directory, page_directory, num_pages, tail_pages, and
+    #   the full tail page slot that we're merging
     def merge(self, range_number):
         # Using the range number, get all of indexes of the id's of the base internal/external pages that belong to the
         # the range.
@@ -236,6 +250,8 @@ class Table:
         bufferpool_object_base_list_external = []
         lineage = -1
         # Load in bufferpool slot objects
+        self.base_pages_internal_lock.acquire()
+        self.base_pages_external_lock.acquire()
         for i in range(0, len(base_page_id_list)):
             base_page_id_internal = self.base_pages_internal[base_page_id_list[i]]
             base_page_id_external = self.base_pages_external[base_page_id_list[i]]
@@ -279,6 +295,8 @@ class Table:
                 bufferpool_object_pages_external[j].lineage = lineage
             for k in range(0, len(bufferpool_object_pages_internal)):
                 bufferpool_object_pages_internal[k].lineage = lineage
+        self.base_pages_external_lock.release()
+        self.base_pages_internal_lock.release()
 
     # Writes new external cols to the bufferpool object.
     def write_external_columns(self, bufferpool_object, external_cols):
