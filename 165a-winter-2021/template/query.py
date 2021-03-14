@@ -18,9 +18,11 @@ class Query:
 
     # Returns if the key exists in the dictionary
     def key_exists(self, key):
+        self.table.index_directory_lock.acquire()
+        rid = self.table.index_directory[key]
+        self.table.index_directory_lock.release()
         if key in self.table.index_directory.keys():
-            # if self.select(key, 0, [1]*self.table.num_columns)[0].columns == [MAX_INT]*self.table.num_columns:
-            temp = self.select(key, 0, [1]*self.table.num_columns)[0].columns
+            temp = self.get_most_updated(self.table.index_directory[key])
             if temp == [self.table.config.max_int]*self.table.num_columns:
                 return False
             else:
