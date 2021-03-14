@@ -9,11 +9,12 @@ class Transaction:
     """
     # Creates a transaction object.
     """
-    def __init__(self):
+    def __init__(self, i):
         self.queries = []
         self.exclusive_locks = {}  # key:key, value:True/False
         self.shared_locks = {}  # key:key, value:True/False
         self.table = None
+        self.num = i
         pass
 
     """
@@ -34,6 +35,7 @@ class Transaction:
         # update = num cols + 1 (key, None, None,value, ....)
         # select  = 3 (key, col, [1,1,1,1,1])
         # ag/sum = 3 (start, end, col)
+        print("running thread ", self.num)
         for query, args in self.queries:
             query_object = query.__self__
             table = query_object.table
@@ -116,6 +118,8 @@ class Transaction:
             if result == False:
                 # we need to remove everything happened after that time stamp
                 return self.abort()
+        print(self.table.index_directory)
+        print(self.table.page_directory)
         return self.commit()
 
     def abort(self):

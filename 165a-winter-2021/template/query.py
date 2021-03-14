@@ -62,49 +62,58 @@ class Query:
     # Returns False if insert fails for whatever reason
     """
     def insert(self, *columns):
+        print("starting insert function for key ", columns[0])
         col_list = []
         for col in columns:
             col_list.append(col)
-        # Generate a new RID from table class
-        rid = self.table.gen_rid()
-        self.table.index.insert_index(rid, col_list)
-        # timestamp for record
-        timestamp = int(round(time() * 1000))
-        # Schema encoding for internal columns
-        schema_encoding_string = '0' * self.table.num_columns
-        schema_encoding = int(schema_encoding_string)
-        # Indirection is set to the maximum value of an 8 byte
-        #   integer --> MAX_INT because there are no updates
-        indirection = self.table.config.max_int
         current_base_page_internal = self.table.get_current_page_id_internal()
         current_base_page_external = self.table.get_current_page_id_external()
         bufferpool_slot_internal = self.table.return_bufferpool_slot(current_base_page_internal, self.table.name, False, False)
         bufferpool_slot_external = self.table.return_bufferpool_slot(current_base_page_external, self.table.name, True, False)
         # Check to update base pages
         bufferpool_slots = self.table.checker(bufferpool_slot_internal, bufferpool_slot_external)
-        updated_bufferpool_slot_internal = bufferpool_slots[0]
-        updated_bufferpool_slot_external = bufferpool_slots[1]
+        with bufferpool_slots[0].lock:
+            updated_bufferpool_slot_internal = bufferpool_slots[0]
+        with bufferpool_slots[1].lock:
+            updated_bufferpool_slot_external = bufferpool_slots[1]
         # Map RID to a tuple (page_range, offset)
-        offset = updated_bufferpool_slot_internal.pages[0].num_records
-        base_page_id_internal = self.table.get_current_page_id_internal()
-        base_page_id_external = self.table.get_current_page_id_external()
-        with self.table.page_directory_lock:
-            self.table.page_directory[rid] = [base_page_id_internal, base_page_id_external, offset]
-        # Map key to the RID in the index directory
-        with self.table.index_directory_lock:
-            self.table.index_directory[columns[0]] = rid
-        # Put the columns of the record into the visible columns
-        with self.bufferpool:
-            for i in range(0, self.table.total_columns - 4):
-                updated_bufferpool_slot_external.pages[i].write(columns[i])
-            # Put the information into the internal records
-            updated_bufferpool_slot_internal.pages[0].write(rid)
-            updated_bufferpool_slot_internal.pages[1].write(timestamp)
-            updated_bufferpool_slot_internal.pages[2].write(schema_encoding)
-            updated_bufferpool_slot_internal.pages[3].write(indirection)
-            # Mark the bufferpool slot as dirty, because its been updated.
-            updated_bufferpool_slot_internal.is_clean = False
-            updated_bufferpool_slot_external.is_clean = False
+        with updated_bufferpool_slot_internal.lock:
+            with updated_bufferpool_slot_external.lock:
+                self.table.rid_counter_lock.acquire()
+                rid = self.table.gen_rid()
+                print("Acquired RID lock for RID ", rid)
+                self.table.index.insert_index(rid, col_list)
+                # timestamp for record
+                timestamp = int(round(time() * 1000))
+                # Schema encoding for internal columns
+                schema_encoding_string = '0' * self.table.num_columns
+                schema_encoding = int(schema_encoding_string)
+                # Indirection is set to the maximum value of an 8 byte
+                #   integer --> MAX_INT because there are no updates
+                indirection = self.table.config.max_int
+                offset = updated_bufferpool_slot_internal.pages[0].num_records
+                base_page_id_internal = self.table.get_current_page_id_internal()
+                base_page_id_external = self.table.get_current_page_id_external()
+                with self.table.page_directory_lock:
+                    self.table.page_directory[rid] = [base_page_id_internal, base_page_id_external, offset]
+                # Map key to the RID in the index directory
+                with self.table.index_directory_lock:
+                    self.table.index_directory[columns[0]] = rid
+                    print("RID when inserting into index directory = ", rid)
+                    print("Column 0 ", columns[0])
+                # Put the columns of the record into the visible columns
+                for i in range(0, self.table.total_columns - 4):
+                    updated_bufferpool_slot_external.pages[i].write(columns[i])
+                updated_bufferpool_slot_external.is_clean = False
+                # Put the information into the internal records
+                updated_bufferpool_slot_internal.pages[0].write(rid)
+                updated_bufferpool_slot_internal.pages[1].write(timestamp)
+                updated_bufferpool_slot_internal.pages[2].write(schema_encoding)
+                updated_bufferpool_slot_internal.pages[3].write(indirection)
+                updated_bufferpool_slot_internal.is_clean = False
+                self.table.rid_counter_lock.release()
+                print("insert done")
+                print(col_list)
         return True
 
     """

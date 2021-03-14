@@ -76,9 +76,8 @@ class Table:
 
     # generate RID
     def gen_rid(self):
-        with self.rid_counter_lock:
-            self.rid_counter += 1
-            return self.rid_counter
+        self.rid_counter += 1
+        return self.rid_counter
 
 
     # The last element of the self.base_page array will always correspond to the pageID of
@@ -165,29 +164,31 @@ class Table:
         # Check the capacity of the current bufferpool slot.
         # If its full, we need to allocate a new base page/tail page, create the files
         # Because the new base page/tail pages are guaranteed to be empty, we can just create empty slots.
-        pages = bufferpool_slot_internal.pages
-        if not pages[0].has_capacity():
-            # Add one to the page_range and allocate files for the new internal and external pages.
-            with self.num_page:
-                self.num_page += 1
-            with self.base_pages_internal_lock:
-                self.base_pages_internal.append(self.num_page)
-            self.create_new_file(self.get_current_page_id_internal(), self.name, 4)
-            bufferpool_slot_internal = self.bufferpool.read_file(self.num_page, self.name, 4)
-            with self.num_page:
-                self.num_page += 1
-            with self.base_pages_external_lock:
-                self.base_pages_external.append(self.num_page)
-            self.create_new_file(self.get_current_page_id_external(), self.name, self.num_columns)
-            bufferpool_slot_external = self.bufferpool.read_file(self.num_page, self.name, self.num_columns)
-            # Check to see if we are in a new Page Range, and allocate empty tail page if we are.
-            if len(self.base_pages_internal) % self.config.page_range_size == 1:
-                with self.num_page:
-                    self.num_page += 1
-                with self.tail_pages_lock:
-                    self.tail_pages.append(self.num_page)
-                self.create_new_file(self.num_page, self.name, self.total_columns)
-        return bufferpool_slot_internal, bufferpool_slot_external
+        with bufferpool_slot_internal.lock:
+            with bufferpool_slot_external.lock:
+                pages = bufferpool_slot_internal.pages
+                if not pages[0].has_capacity():
+                    # Add one to the page_range and allocate files for the new internal and external pages.
+                    with self.num_page_lock:
+                        self.num_page += 1
+                    with self.base_pages_internal_lock:
+                        self.base_pages_internal.append(self.num_page)
+                    self.create_new_file(self.get_current_page_id_internal(), self.name, 4)
+                    bufferpool_slot_internal = self.bufferpool.read_file(self.num_page, self.name, 4)
+                    with self.num_page_lock:
+                        self.num_page += 1
+                    with self.base_pages_external_lock:
+                        self.base_pages_external.append(self.num_page)
+                    self.create_new_file(self.get_current_page_id_external(), self.name, self.num_columns)
+                    bufferpool_slot_external = self.bufferpool.read_file(self.num_page, self.name, self.num_columns)
+                    # Check to see if we are in a new Page Range, and allocate empty tail page if we are.
+                    if len(self.base_pages_internal) % self.config.page_range_size == 1:
+                        with self.num_page_lock:
+                            self.num_page += 1
+                        with self.tail_pages_lock:
+                            self.tail_pages.append(self.num_page)
+                        self.create_new_file(self.num_page, self.name, self.total_columns)
+                return bufferpool_slot_internal, bufferpool_slot_external
 
     # Given the pageId of a base page, return the pageId corresponding to the tail page for that base page.
     # Checks if the tail page has capacity, and merges if it doesn't.
@@ -449,33 +450,37 @@ class Table:
                 # returns False
         # case 4: self.shared_locks does exist and is greater than 1
                 # return False
-        if key not in self.shared_locks or self.shared_locks[key] == 0:
-            pass
-        elif self.shared_locks[key] == 1 and has_shared:
-            self.shared_locks[key] = 0
-            pass
-        else:
-            return False
+        with self.shared_locks_lock:
+            with self.exclusive_locks_lock:
+                if key not in self.shared_locks or self.shared_locks[key] == 0:
+                    pass
+                elif self.shared_locks[key] == 1 and has_shared:
+                    self.shared_locks[key] = 0
+                    pass
+                else:
+                    return False
 
-        # check for exclusive
-        if key not in self.exclusive_locks:
-            # nobody has it and it has been generated
-            self.put_exclusive_lock(key)
-            return True
-        elif self.exclusive_locks[key] == True:
-            # Already have an exclusive lock
-            return False
-        else:
-            self.put_exclusive_lock(key)
-            return True
+                # check for exclusive
+                if key not in self.exclusive_locks:
+                    # nobody has it and it has been generated
+                    self.put_exclusive_lock(key)
+                    return True
+                elif self.exclusive_locks[key] == True:
+                    # Already have an exclusive lock
+                    return False
+                else:
+                    self.put_exclusive_lock(key)
+                    return True
 
     def lock_checker_shared(self, key):
-        if key not in self.shared_locks:
-            self.put_shared_lock(key)
-            return True
-        elif self.shared_locks[key] >= 0:
-            self.put_shared_lock(key)
-            return True
-        else:
-            return False
+        with self.shared_locks_lock:
+            with self.exclusive_locks_lock:
+                if key not in self.shared_locks:
+                    self.put_shared_lock(key)
+                    return True
+                elif self.shared_locks[key] >= 0:
+                    self.put_shared_lock(key)
+                    return True
+                else:
+                    return False
 
