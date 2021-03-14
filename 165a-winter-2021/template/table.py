@@ -115,45 +115,51 @@ class Table:
     def get_most_updated(self, rid):
         # Get all information from the base record
         # rid = self.index_directory[key]
-        with self.page_directory_lock:
-            base_page_id_internal = self.page_directory[rid][0]
-            base_page_id_external = self.page_directory[rid][1]
-            base_offset = self.page_directory[rid][2]
+        self.page_directory_lock.acquire()
+        base_page_id_internal = self.page_directory[rid][0]
+        base_page_id_external = self.page_directory[rid][1]
+        base_offset = self.page_directory[rid][2]
         # Read the base page into the bufferpool
         bufferpool_slot_base_internal = self.return_bufferpool_slot(base_page_id_internal, self.name, False, False)
         bufferpool_slot_base_external = self.return_bufferpool_slot(base_page_id_external, self.name, True, False)
         # Get indirection and schema encoding from bufferpool slot
-        indirection = self.get_indirection_base(bufferpool_slot_base_internal, base_offset)
-        schema_encoding = self.get_schema_encoding_base(bufferpool_slot_base_internal, base_offset)
-        lineage = bufferpool_slot_base_external.pages[0].lineage
-        if indirection != self.config.max_int and lineage < indirection:
-            # We have a tail page, so need to get the tail_offset and tail_pageId from page_directory using
-            # indirection of base page as key
-            tail_page_id = self.page_directory[indirection][0]
-            tail_offset = self.page_directory[indirection][2]
-            bufferpool_slot_tail = self.return_bufferpool_slot(tail_page_id, self.name, False, True)
-            tail_record = []
-            for i in range(0, len(bufferpool_slot_tail.pages)-4):
-                tail_record.append(self.get_record_element(bufferpool_slot_tail, tail_offset, i))
-            # If the "most updated" points to all None, then it means it has been deleted
-            deleted = [self.config.max_int] * self.num_columns
-            if tail_record == deleted:
-                return deleted
-        # Read the values to get the most updated values
-        record_as_list = []
-        num_col = self.num_columns
-        for i in range(0, num_col):
-            if schema_encoding[i] == '0':
-                # Read from base page
-                element = self.get_record_element(bufferpool_slot_base_external, base_offset, i)
-            elif schema_encoding[i] == '1' and lineage >= indirection:
-                # Read from base page, because it has been merged already
-                element = self.get_record_element(bufferpool_slot_base_external, base_offset, i)
-            else:
-                # Read from the tail
-                element = self.get_record_element(bufferpool_slot_tail, tail_offset, i)
-            record_as_list.append(element)
-        return record_as_list
+        with bufferpool_slot_base_internal.lock:
+            with bufferpool_slot_base_external.lock:
+                indirection = self.get_indirection_base(bufferpool_slot_base_internal, base_offset)
+                schema_encoding = self.get_schema_encoding_base(bufferpool_slot_base_internal, base_offset)
+                lineage = bufferpool_slot_base_external.pages[0].lineage
+                if indirection != self.config.max_int and lineage < indirection:
+                    # We have a tail page, so need to get the tail_offset and tail_pageId from page_directory using
+                    # indirection of base page as key
+                    tail_page_id = self.page_directory[indirection][0]
+                    tail_offset = self.page_directory[indirection][2]
+                    bufferpool_slot_tail = self.return_bufferpool_slot(tail_page_id, self.name, False, True)
+                    bufferpool_slot_tail.lock.acquire()
+                    tail_record = []
+                    for i in range(0, len(bufferpool_slot_tail.pages)-4):
+                        tail_record.append(self.get_record_element(bufferpool_slot_tail, tail_offset, i))
+                    bufferpool_slot_tail.lock.release()
+                    # If the "most updated" points to all None, then it means it has been deleted
+                    deleted = [self.config.max_int] * self.num_columns
+                    if tail_record == deleted:
+                        return deleted
+                # Read the values to get the most updated values
+                record_as_list = []
+                num_col = self.num_columns
+                for i in range(0, num_col):
+                    if schema_encoding[i] == '0':
+                        # Read from base page
+                        element = self.get_record_element(bufferpool_slot_base_external, base_offset, i)
+                    elif schema_encoding[i] == '1' and lineage >= indirection:
+                        # Read from base page, because it has been merged already
+                        element = self.get_record_element(bufferpool_slot_base_external, base_offset, i)
+                    else:
+                        # Read from the tail
+                        element = tail_record[i]
+                    record_as_list.append(element)
+
+                self.page_directory_lock.release()
+                return record_as_list
 
     # Checker takes in the bufferpool slots that corresponds to the current base page.
     # Checker checks if it is full, and if it is, then it allocates another base page, loads that empty base page
