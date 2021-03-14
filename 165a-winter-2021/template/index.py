@@ -1,4 +1,5 @@
 from template.config import init
+import threading
 """
 A data strucutre holding indices for various columns of a table. Key column should be indexd by default, other columns can be indexed through this object. Indices are usually B-Trees, but other data structures can be used as well.
 """
@@ -10,6 +11,10 @@ class Index:
         self.indices = [None] * table.num_columns
         self.table = table
         self.config = init()
+        self.lock_list = []
+        for i in range(table.num_columns):
+            self.lock_list.append(threading.Lock())
+
 
     # Returns if the key exists in the dictionary
     def key_exists(self, key):
@@ -31,12 +36,13 @@ class Index:
         if self.indices[column] == None or self.indices[column] == {}:
             self.create_index(column)
         # it will be the most updated since we update index in there
-        dict = self.indices[column]
-        if value not in dict:
-            return False
-        rid = dict[value]
-        # Rid is a list of rid's where value occurs
-        return rid
+        with self.lock_list[column]:
+            dict = self.indices[column]
+            if value not in dict:
+                return False
+            rid = dict[value]
+            # Rid is a list of rid's where value occurs
+            return rid
 
     """
     # Returns the RIDs of all records with values in column "column" between "begin" and "end"
@@ -53,6 +59,7 @@ class Index:
     """
     def create_index(self, column_number):
         new_index = {}
+        self.lock_list[column_number].acquire()
         # Loop through all the keys
         keys = list(self.table.index_directory.keys())
         for i in range(0, len(keys)):
@@ -66,12 +73,15 @@ class Index:
                     new_index[value] = [rid]
         # At the end, put it in the list if indices
         self.indices[column_number] = new_index
+        self.lock_list[column_number].release()
 
     """
     # Drop index of specific column
     """
     def drop_index(self, column_number):
+        self.lock_list[column_number].acquire()
         self.indices[column_number] = None
+        self.lock_list[column_number].release()
 
     def insert_index(self, rid, column_values):
         # get the rid and the column values
@@ -80,18 +90,22 @@ class Index:
             if self.indices[i] == None:
                 self.create_index(i)
                 index = self.indices[i]
+            self.lock_list[i].acquire()
             if column_values[i] in index:
                 index[column_values[i]].append(rid)
+                self.lock_list[i].release()
             else:
                 index[column_values[i]] = [rid]
+                self.lock_list[i].release()
 
 
     def update_index(self, rid, new, old, column):
         if self.indices[column] == None or self.indices[column] == {}:
             self.create_index(column)
-        temp_dict = self.indices[column]
-        rid_list = temp_dict[old]
-        update_index = rid_list.index(rid)
-        temp_dict[old].pop(update_index)
-        if new is not None:
-            temp_dict[new].append(rid)
+        with self.lock_list[column]:
+            temp_dict = self.indices[column]
+            rid_list = temp_dict[old]
+            update_index = rid_list.index(rid)
+            temp_dict[old].pop(update_index)
+            if new is not None:
+                temp_dict[new].append(rid)

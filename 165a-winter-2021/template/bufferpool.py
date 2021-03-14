@@ -3,6 +3,7 @@ from template.page import Page
 # from index import Index
 # from time import time
 from template.config import init
+import threading
 
 import os
 
@@ -20,10 +21,12 @@ class Bufferpool:
     def __init__(self):
         self.path = "" # Path represents the path to the folder where all files are. Empty initially.
         self.slots = [] # 16 slots for 16 base pages/tail pages of different tables in the database
+        self.slots_lock = []
         self.config = init() # Config file with all the hard coded variables
         for i in range(0, len(self.slots)):
             slot = Slot()
             self.slots.append(slot)
+            self.slots_lock.append(threading.Lock())
 
     # Set the path
     def set_path(self, path):

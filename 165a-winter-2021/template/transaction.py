@@ -14,7 +14,6 @@ class Transaction:
         self.exclusive_locks = {}  # key:key, value:True/False
         self.shared_locks = {}  # key:key, value:True/False
         self.table = None
-        self.lock = threading.Lock()
         pass
 
     """

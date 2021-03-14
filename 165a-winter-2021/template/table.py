@@ -3,6 +3,7 @@ from template.index import Index
 from time import time
 from template.bufferpool import Bufferpool
 import os
+import threading
 
 class Record:
 
@@ -26,25 +27,35 @@ class Table:
         self.total_columns = num_columns + 4
         self.num_columns = num_columns
         self.page_directory = {} #{RID: (pageId, offset)}
+        self.page_directory_lock = threading.Lock()
         self.index_directory = {} # {Key: RID}
+        self.index_directory_lock = threading.Lock()
         self.index = Index(self) # index object
         # rid_counter keeps track of the current rid to avoid duplicates
         self.rid_counter = 0
+        self.rid_counter_lock = threading.Lock()
         # num_pages keeps track of the pageID we're currently adding to. Initially, this is one.
         self.num_page = 2
+        self.num_page_lock = threading.Lock()
         # Put all of the config constants into one variable
         self.config = init()
         # base_pages_internal is a list of page Id's that belong to the internal pages of a base record
         # base_page_external is a list of page Id's that belong to the external pages of a base record
         self.base_pages_internal = [1]
+        self.base_pages_internal_lock = threading.Lock()
         self.base_pages_external = [2]
+        self.base_pages_external_lock = threading.Lock()
         # tail_pages is a list of pageId's that belong to tail pages.
         self.tail_pages = [0]
+        self.tail_pages_lock = threading.Lock()
         # Every table in the database has access to the shared bufferpool object
         self.bufferpool = bufferpool
+        self.bufferpool_lock = threading.Lock()
         # Implementing locks
         self.shared_locks = {}
+        self.shared_locks_lock = threading.Lock()
         self.exclusive_locks = {}
+        self.exclusive_locks_lock = threading.Lock()
 
     # Creates a new file corresponding to the page_id to write/read from
     def create_new_file(self, page_id, table_name, num_cols):
@@ -65,16 +76,20 @@ class Table:
 
     # generate RID
     def gen_rid(self):
-        self.rid_counter += 1
-        return self.rid_counter
+        with self.rid_counter_lock:
+            self.rid_counter += 1
+            return self.rid_counter
+
 
     # The last element of the self.base_page array will always correspond to the pageID of
     # our current set of base pages.
     def get_current_page_id_internal(self):
-        return self.base_pages_internal[len(self.base_pages_internal)-1]
+        with self.base_pages_internal_lock:
+            return self.base_pages_internal[len(self.base_pages_internal)-1]
 
     def get_current_page_id_external(self):
-        return self.base_pages_external[len(self.base_pages_external)-1]
+        with self.base_pages_external_lock:
+            return self.base_pages_external[len(self.base_pages_external)-1]
 
     # Given a page ID, the name of the table, and whether the page is base/tail and internal/external,
     # return the bufferpool slot with the data in the list of pages. This function also automatically loads it
@@ -103,9 +118,10 @@ class Table:
     def get_most_updated(self, rid):
         # Get all information from the base record
         # rid = self.index_directory[key]
-        base_page_id_internal = self.page_directory[rid][0]
-        base_page_id_external = self.page_directory[rid][1]
-        base_offset = self.page_directory[rid][2]
+        with self.page_directory_lock:
+            base_page_id_internal = self.page_directory[rid][0]
+            base_page_id_external = self.page_directory[rid][1]
+            base_offset = self.page_directory[rid][2]
         # Read the base page into the bufferpool
         bufferpool_slot_base_internal = self.return_bufferpool_slot(base_page_id_internal, self.name, False, False)
         bufferpool_slot_base_external = self.return_bufferpool_slot(base_page_id_external, self.name, True, False)
@@ -152,18 +168,24 @@ class Table:
         pages = bufferpool_slot_internal.pages
         if not pages[0].has_capacity():
             # Add one to the page_range and allocate files for the new internal and external pages.
-            self.num_page += 1
-            self.base_pages_internal.append(self.num_page)
+            with self.num_page:
+                self.num_page += 1
+            with self.base_pages_internal_lock:
+                self.base_pages_internal.append(self.num_page)
             self.create_new_file(self.get_current_page_id_internal(), self.name, 4)
             bufferpool_slot_internal = self.bufferpool.read_file(self.num_page, self.name, 4)
-            self.num_page += 1
-            self.base_pages_external.append(self.num_page)
+            with self.num_page:
+                self.num_page += 1
+            with self.base_pages_external_lock:
+                self.base_pages_external.append(self.num_page)
             self.create_new_file(self.get_current_page_id_external(), self.name, self.num_columns)
             bufferpool_slot_external = self.bufferpool.read_file(self.num_page, self.name, self.num_columns)
             # Check to see if we are in a new Page Range, and allocate empty tail page if we are.
             if len(self.base_pages_internal) % self.config.page_range_size == 1:
-                self.num_page += 1
-                self.tail_pages.append(self.num_page)
+                with self.num_page:
+                    self.num_page += 1
+                with self.tail_pages_lock:
+                    self.tail_pages.append(self.num_page)
                 self.create_new_file(self.num_page, self.name, self.total_columns)
         return bufferpool_slot_internal, bufferpool_slot_external
 
@@ -282,10 +304,10 @@ class Table:
         pages = bufferpool_object.pages
         page = pages[2]
         schema_encoding = page.read(offset)
-        int_schema_encoding = int.from_bytes(schema_encoding, byteorder = "big")
+        int_schema_encoding = int.from_bytes(schema_encoding, byteorder="big")
         str_schema_encoding = str(int_schema_encoding)
         # for loop to add back beginning zeros in schema encoding
-        for i in range(self.num_columns-len(str_schema_encoding)):
+        for i in range(self.num_columns - len(str_schema_encoding)):
             str_schema_encoding = "0" + str_schema_encoding
         return str_schema_encoding
 

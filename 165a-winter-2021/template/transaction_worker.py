@@ -31,17 +31,12 @@ class TransactionWorker:
             # each transaction returns True if committed or False if aborted
             with self.lock:
                 self.stats.append(transaction.run())
-                # try different time here
-                time.sleep(2.5)
+                
         self.result = len(list(filter(lambda x: x, self.stats)))
 
     def run(self):
         self.thread.start()
         # populate queue with data
-        self.lock.acquire()
-        for transaction in self.transactions:
-            self.queue.put(transaction)
-        self.lock.release()
         # wait on the queue until everything has been processed
         # self.queue.join()
 

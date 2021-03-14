@@ -2,6 +2,7 @@ from template.table import Table, Record
 from template.index import Index
 from time import time
 from template.config import init
+import threading
 
 
 class Query:
@@ -87,20 +88,23 @@ class Query:
         offset = updated_bufferpool_slot_internal.pages[0].num_records
         base_page_id_internal = self.table.get_current_page_id_internal()
         base_page_id_external = self.table.get_current_page_id_external()
-        self.table.page_directory[rid] = [base_page_id_internal, base_page_id_external, offset]
+        with self.table.page_directory_lock:
+            self.table.page_directory[rid] = [base_page_id_internal, base_page_id_external, offset]
         # Map key to the RID in the index directory
-        self.table.index_directory[columns[0]] = rid
+        with self.table.index_directory_lock:
+            self.table.index_directory[columns[0]] = rid
         # Put the columns of the record into the visible columns
-        for i in range(0, self.table.total_columns - 4):
-            updated_bufferpool_slot_external.pages[i].write(columns[i])
-        # Put the information into the internal records
-        updated_bufferpool_slot_internal.pages[0].write(rid)
-        updated_bufferpool_slot_internal.pages[1].write(timestamp)
-        updated_bufferpool_slot_internal.pages[2].write(schema_encoding)
-        updated_bufferpool_slot_internal.pages[3].write(indirection)
-        # Mark the bufferpool slot as dirty, because its been updated.
-        updated_bufferpool_slot_internal.is_clean = False
-        updated_bufferpool_slot_external.is_clean = False
+        with self.bufferpool:
+            for i in range(0, self.table.total_columns - 4):
+                updated_bufferpool_slot_external.pages[i].write(columns[i])
+            # Put the information into the internal records
+            updated_bufferpool_slot_internal.pages[0].write(rid)
+            updated_bufferpool_slot_internal.pages[1].write(timestamp)
+            updated_bufferpool_slot_internal.pages[2].write(schema_encoding)
+            updated_bufferpool_slot_internal.pages[3].write(indirection)
+            # Mark the bufferpool slot as dirty, because its been updated.
+            updated_bufferpool_slot_internal.is_clean = False
+            updated_bufferpool_slot_external.is_clean = False
         return True
 
     """
@@ -114,7 +118,8 @@ class Query:
     def select(self, key, column, query_columns):
         if column == 0:
             # If the column is 0, we can use index_directory and page_directory for built in indexing
-            rid = self.table.index_directory[key]
+            with self.table.index_directory_lock:
+                rid = self.table.index_directory[key]
             rid_list = [rid]
         else:
             rid_list = self.table.index.locate(column, key) # list of rid's where value occurs at column
