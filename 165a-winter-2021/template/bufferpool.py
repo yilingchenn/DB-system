@@ -57,26 +57,26 @@ class Bufferpool:
             return -1
 
     # Write the slot object to files
+    # Lock is already acquired
     def write_file(self, slot_object):
-        with slot_object.lock:
-            if not slot_object.is_clean:
-                path = self.path
-                pages = slot_object.pages
-                # Specify the file name
-                file = str(slot_object.table_name) + '_' + str(slot_object.page_id) + '.txt'
-                # Creating a file at specified location
-                with open(os.path.join(path, file), 'wb') as ff:
-                    # Write num_records to the first line
-                    num_records = pages[0].num_records
-                    num_records_bytes = num_records.to_bytes(8, byteorder='big')
-                    ff.write(num_records_bytes)
-                    # Write lineage to the second line
-                    lineage = pages[0].lineage
-                    lineage_bytes = lineage.to_bytes(8, byteorder='big')
-                    ff.write(lineage_bytes)
-                    # Write remaining byte arrays
-                    for i in range(0, len(pages)):
-                        ff.write(pages[i].data)
+        if not slot_object.is_clean:
+            path = self.path
+            pages = slot_object.pages
+            # Specify the file name
+            file = str(slot_object.table_name) + '_' + str(slot_object.page_id) + '.txt'
+            # Creating a file at specified location
+            with open(os.path.join(path, file), 'wb') as ff:
+                # Write num_records to the first line
+                num_records = pages[0].num_records
+                num_records_bytes = num_records.to_bytes(8, byteorder='big')
+                ff.write(num_records_bytes)
+                # Write lineage to the second line
+                lineage = pages[0].lineage
+                lineage_bytes = lineage.to_bytes(8, byteorder='big')
+                ff.write(lineage_bytes)
+                # Write remaining byte arrays
+                for i in range(0, len(pages)):
+                    ff.write(pages[i].data)
 
     # Assuming that file with page_id and table_name exists already, we access that base page in the table and read it
     # into a bufferpool slot, and then return that bufferpool slot.

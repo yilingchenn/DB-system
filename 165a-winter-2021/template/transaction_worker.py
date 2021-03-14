@@ -31,6 +31,7 @@ class TransactionWorker:
             # each transaction returns True if committed or False if aborted
             with self.lock:
                 self.stats.append(transaction.run())
+                time.sleep(.1)
                 
         self.result = len(list(filter(lambda x: x, self.stats)))
 

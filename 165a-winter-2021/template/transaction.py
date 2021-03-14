@@ -107,6 +107,7 @@ class Transaction:
                     if self.shared_locks[key] == False:
                         return self.abort()
         # somehow need when the transaction to start running
+        i = 0
         for query, args in self.queries:
             # assigning lock to this transactions
             # have a list of keys that are in this transaction --> shared lock
@@ -118,8 +119,7 @@ class Transaction:
             if result == False:
                 # we need to remove everything happened after that time stamp
                 return self.abort()
-        print(self.table.index_directory)
-        print(self.table.page_directory)
+            i += 1
         return self.commit()
 
     def abort(self):

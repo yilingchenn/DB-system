@@ -66,6 +66,8 @@ class Query:
         col_list = []
         for col in columns:
             col_list.append(col)
+        self.table.base_pages_internal_lock.acquire()
+        self.table.base_pages_external_lock.acquire()
         current_base_page_internal = self.table.get_current_page_id_internal()
         current_base_page_external = self.table.get_current_page_id_external()
         bufferpool_slot_internal = self.table.return_bufferpool_slot(current_base_page_internal, self.table.name, False, False)
@@ -76,9 +78,13 @@ class Query:
             updated_bufferpool_slot_internal = bufferpool_slots[0]
         with bufferpool_slots[1].lock:
             updated_bufferpool_slot_external = bufferpool_slots[1]
+        self.table.base_pages_internal_lock.release()
+        self.table.base_pages_external_lock.release()
         # Map RID to a tuple (page_range, offset)
         with updated_bufferpool_slot_internal.lock:
             with updated_bufferpool_slot_external.lock:
+                print("External buff ", updated_bufferpool_slot_external)
+                print("Internal buff ", updated_bufferpool_slot_internal)
                 self.table.rid_counter_lock.acquire()
                 rid = self.table.gen_rid()
                 print("Acquired RID lock for RID ", rid)
@@ -91,7 +97,10 @@ class Query:
                 # Indirection is set to the maximum value of an 8 byte
                 #   integer --> MAX_INT because there are no updates
                 indirection = self.table.config.max_int
-                offset = updated_bufferpool_slot_internal.pages[0].num_records
+                updated_bufferpool_slot_internal.pages[0].num_records_lock.acquire()
+                updated_bufferpool_slot_external.pages[0].num_records_lock.acquire()
+                offset = updated_bufferpool_slot_internal.pages[0].get_num_records()
+                print("offset = ", offset)
                 base_page_id_internal = self.table.get_current_page_id_internal()
                 base_page_id_external = self.table.get_current_page_id_external()
                 with self.table.page_directory_lock:
@@ -112,6 +121,10 @@ class Query:
                 updated_bufferpool_slot_internal.pages[3].write(indirection)
                 updated_bufferpool_slot_internal.is_clean = False
                 self.table.rid_counter_lock.release()
+                updated_bufferpool_slot_internal.pages[0].num_records_lock.release()
+                updated_bufferpool_slot_external.pages[0].num_records_lock.release()
+                print(self.table.index_directory)
+                print(self.table.page_directory)
                 print("insert done")
                 print(col_list)
         return True

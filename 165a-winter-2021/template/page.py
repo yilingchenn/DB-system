@@ -1,9 +1,11 @@
 from template.config import *
+import threading
 
 class Page:
 
     def __init__(self):
         self.num_records = 0 # length of base pages
+        self.num_records_lock = threading.Lock()
         self.config = init() # call the config class
         self.data = bytearray(self.config.page_size) # page size
         # lineage refers to largest RID of a record in the tail page that has been merged into base pages successfully
@@ -25,7 +27,11 @@ class Page:
     def write(self, value):
         self.data[self.num_records * 8: (self.num_records + 1) * 8] = value.to_bytes(8, byteorder='big')
         self.num_records += 1
+        print("incremented num_records to ", self.num_records)
 
     def read(self, offset):
         return self.data[offset*8: (offset+1)*8]
+
+    def get_num_records(self):
+        return self.num_records
 

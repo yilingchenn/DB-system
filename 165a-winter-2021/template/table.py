@@ -83,12 +83,10 @@ class Table:
     # The last element of the self.base_page array will always correspond to the pageID of
     # our current set of base pages.
     def get_current_page_id_internal(self):
-        with self.base_pages_internal_lock:
-            return self.base_pages_internal[len(self.base_pages_internal)-1]
+        return self.base_pages_internal[len(self.base_pages_internal)-1]
 
     def get_current_page_id_external(self):
-        with self.base_pages_external_lock:
-            return self.base_pages_external[len(self.base_pages_external)-1]
+        return self.base_pages_external[len(self.base_pages_external)-1]
 
     # Given a page ID, the name of the table, and whether the page is base/tail and internal/external,
     # return the bufferpool slot with the data in the list of pages. This function also automatically loads it
