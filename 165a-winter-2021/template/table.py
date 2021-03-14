@@ -169,14 +169,12 @@ class Table:
                     # Add one to the page_range and allocate files for the new internal and external pages.
                     with self.num_page_lock:
                         self.num_page += 1
-                    with self.base_pages_internal_lock:
-                        self.base_pages_internal.append(self.num_page)
+                    self.base_pages_internal.append(self.num_page)
                     self.create_new_file(self.get_current_page_id_internal(), self.name, 4)
                     bufferpool_slot_internal = self.bufferpool.read_file(self.num_page, self.name, 4)
                     with self.num_page_lock:
                         self.num_page += 1
-                    with self.base_pages_external_lock:
-                        self.base_pages_external.append(self.num_page)
+                    self.base_pages_external.append(self.num_page)
                     self.create_new_file(self.get_current_page_id_external(), self.name, self.num_columns)
                     bufferpool_slot_external = self.bufferpool.read_file(self.num_page, self.name, self.num_columns)
                     # Check to see if we are in a new Page Range, and allocate empty tail page if we are.

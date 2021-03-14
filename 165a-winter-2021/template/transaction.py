@@ -35,7 +35,6 @@ class Transaction:
         # update = num cols + 1 (key, None, None,value, ....)
         # select  = 3 (key, col, [1,1,1,1,1])
         # ag/sum = 3 (start, end, col)
-        print("running thread ", self.num)
         for query, args in self.queries:
             query_object = query.__self__
             table = query_object.table

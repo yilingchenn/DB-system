@@ -27,7 +27,6 @@ class Page:
     def write(self, value):
         self.data[self.num_records * 8: (self.num_records + 1) * 8] = value.to_bytes(8, byteorder='big')
         self.num_records += 1
-        print("incremented num_records to ", self.num_records)
 
     def read(self, offset):
         return self.data[offset*8: (offset+1)*8]

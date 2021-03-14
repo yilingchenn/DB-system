@@ -62,7 +62,6 @@ class Query:
     # Returns False if insert fails for whatever reason
     """
     def insert(self, *columns):
-        print("starting insert function for key ", columns[0])
         col_list = []
         for col in columns:
             col_list.append(col)
@@ -83,11 +82,8 @@ class Query:
         # Map RID to a tuple (page_range, offset)
         with updated_bufferpool_slot_internal.lock:
             with updated_bufferpool_slot_external.lock:
-                print("External buff ", updated_bufferpool_slot_external)
-                print("Internal buff ", updated_bufferpool_slot_internal)
                 self.table.rid_counter_lock.acquire()
                 rid = self.table.gen_rid()
-                print("Acquired RID lock for RID ", rid)
                 self.table.index.insert_index(rid, col_list)
                 # timestamp for record
                 timestamp = int(round(time() * 1000))
@@ -100,7 +96,6 @@ class Query:
                 updated_bufferpool_slot_internal.pages[0].num_records_lock.acquire()
                 updated_bufferpool_slot_external.pages[0].num_records_lock.acquire()
                 offset = updated_bufferpool_slot_internal.pages[0].get_num_records()
-                print("offset = ", offset)
                 base_page_id_internal = self.table.get_current_page_id_internal()
                 base_page_id_external = self.table.get_current_page_id_external()
                 with self.table.page_directory_lock:
@@ -108,8 +103,6 @@ class Query:
                 # Map key to the RID in the index directory
                 with self.table.index_directory_lock:
                     self.table.index_directory[columns[0]] = rid
-                    print("RID when inserting into index directory = ", rid)
-                    print("Column 0 ", columns[0])
                 # Put the columns of the record into the visible columns
                 for i in range(0, self.table.total_columns - 4):
                     updated_bufferpool_slot_external.pages[i].write(columns[i])
@@ -123,10 +116,6 @@ class Query:
                 self.table.rid_counter_lock.release()
                 updated_bufferpool_slot_internal.pages[0].num_records_lock.release()
                 updated_bufferpool_slot_external.pages[0].num_records_lock.release()
-                print(self.table.index_directory)
-                print(self.table.page_directory)
-                print("insert done")
-                print(col_list)
         return True
 
     """
